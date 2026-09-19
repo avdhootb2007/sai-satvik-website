@@ -10,9 +10,19 @@ import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
 import WhatsAppModal from './components/WhatsAppModal';
 import MobileStickyBar from './components/MobileStickyBar';
+import HotelAuthModal from './components/HotelAuthModal';
+import ManagerAuthModal from './components/ManagerAuthModal';
+import HotelResortPortal from './components/HotelResortPortal';
+import DairyManagerPortal from './components/DairyManagerPortal';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { PRODUCTS } from './data/products';
+import { Home } from 'lucide-react';
 
-export default function App() {
+function MainAppContent() {
+  const { activePortal, setActivePortal } = useAuth();
+  const { t } = useLanguage();
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalProduct, setModalProduct] = useState(PRODUCTS[0]);
@@ -36,43 +46,82 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
-      {/* 1. Sticky responsive navbar */}
+      {/* Sticky responsive navbar with Language & Portal Switchers */}
       <Navbar 
         onOpenOrderModal={() => handleOpenOrderModal()}
         activeCategory={activeCategory} 
       />
 
-      {/* 2. Hero section */}
-      <Hero 
-        onOpenOrderModal={() => handleOpenOrderModal()} 
-      />
+      {/* Global Interface Switcher Bar when a portal is active */}
+      {activePortal !== 'none' && (
+        <div style={{
+          backgroundColor: 'var(--color-primary-dark)',
+          color: '#EBF5EE',
+          padding: '0.6rem 1rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '2px solid var(--color-gold)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.88rem' }}>
+            {activePortal === 'hotel_resort' && <span>{t('hotelPortal')} ({t('activeView')})</span>}
+            {activePortal === 'dairy_manager' && <span>{t('dairyManager')} ({t('activeView')})</span>}
+          </div>
 
-      {/* 3. Product categories */}
-      <CategorySection 
-        activeCategory={activeCategory} 
-        onSelectCategory={setActiveCategory} 
-      />
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setActivePortal('none')}
+              style={{
+                backgroundColor: 'var(--color-gold)',
+                color: 'var(--color-primary-dark)',
+                border: 'none',
+                padding: '4px 12px',
+                borderRadius: '4px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Home size={14} /> {t('publicSite')}
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* 4. Featured products showcase */}
-      <ProductGrid 
-        activeCategory={activeCategory} 
-        onSelectCategory={setActiveCategory}
-        onOrderClick={handleOpenOrderModal}
-      />
+      {/* RENDER VIEW BASED ON ACTIVE PORTAL */}
+      {activePortal === 'hotel_resort' ? (
+        <HotelResortPortal />
+      ) : activePortal === 'dairy_manager' ? (
+        <DairyManagerPortal />
+      ) : (
+        <>
+          {/* Public Retail Website */}
+          <Hero 
+            onOpenOrderModal={() => handleOpenOrderModal()} 
+          />
 
-      {/* 5. Why choose Sai Satvik */}
-      <WhyUs />
+          <CategorySection 
+            activeCategory={activeCategory} 
+            onSelectCategory={setActiveCategory} 
+          />
 
-      {/* 6. About the business */}
-      <AboutSection />
+          <ProductGrid 
+            activeCategory={activeCategory} 
+            onSelectCategory={setActiveCategory}
+            onOrderClick={handleOpenOrderModal}
+          />
 
-      {/* 7. Store/location section */}
-      <LocationSection />
+          <WhyUs />
+          <AboutSection />
+          <LocationSection />
+          <ContactSection />
+        </>
+      )}
 
-      {/* 8. Contact section */}
-      <ContactSection />
-
-      {/* 9. Footer */}
+      {/* Footer */}
       <Footer onSelectCategory={setActiveCategory} />
 
       {/* WhatsApp Quick Order System Modal */}
@@ -83,11 +132,25 @@ export default function App() {
         selectedSize={modalSize}
       />
 
+      {/* Separate B2B & Manager Authentication Modals */}
+      <HotelAuthModal />
+      <ManagerAuthModal />
+
       {/* Mobile Floating Sticky Call & WhatsApp Bar */}
       <MobileStickyBar 
         onOpenOrderModal={() => handleOpenOrderModal()} 
       />
 
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <MainAppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

@@ -1,8 +1,11 @@
 import React from 'react';
 import { Phone, MessageCircle } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/products';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function MobileStickyBar({ onOpenOrderModal }) {
+  const { language } = useLanguage();
+
   return (
     <div 
       className="mobile-sticky-bar"
@@ -35,7 +38,7 @@ export default function MobileStickyBar({ onOpenOrderModal }) {
           }}
         >
           <Phone size={18} />
-          <span>फोन करा</span>
+          <span>{language === 'mr' ? 'फोन करा' : 'Call Now'}</span>
         </a>
 
         {/* WhatsApp Order Button */}
@@ -51,7 +54,7 @@ export default function MobileStickyBar({ onOpenOrderModal }) {
           }}
         >
           <MessageCircle size={18} />
-          <span>ऑर्डर करा</span>
+          <span>{language === 'mr' ? 'ऑर्डर करा' : 'Order Now'}</span>
         </button>
 
       </div>
@@ -61,7 +64,6 @@ export default function MobileStickyBar({ onOpenOrderModal }) {
           .mobile-sticky-bar {
             display: block !important;
           }
-          /* Add bottom padding to body so sticky bar does not overlap footer content */
           body {
             padding-bottom: 70px;
           }

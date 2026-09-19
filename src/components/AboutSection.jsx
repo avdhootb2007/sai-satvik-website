@@ -1,8 +1,11 @@
 import React from 'react';
-import { Heart, CheckCircle2, ShieldAlert, Award, Phone } from 'lucide-react';
+import { Heart, CheckCircle2, Phone } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/products';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AboutSection() {
+  const { language, t } = useLanguage();
+
   return (
     <section id="about" className="section-padding" style={{ backgroundColor: 'var(--color-cold-air)' }}>
       <div className="container">
@@ -45,10 +48,10 @@ export default function AboutSection() {
                 maxWidth: '260px'
               }}>
                 <div style={{ color: 'var(--color-gold)', fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-                  अखंड विश्वास
+                  {language === 'mr' ? 'अखंड विश्वास' : 'Complete Trust'}
                 </div>
                 <div className="marathi-heading" style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.3 }}>
-                  शुद्धतेची १००% गॅरंटी
+                  {language === 'mr' ? 'शुद्धतेची १००% गॅरंटी' : '100% Purity Guarantee'}
                 </div>
               </div>
 
@@ -60,11 +63,13 @@ export default function AboutSection() {
             
             <span className="section-subtitle">
               <Heart size={16} />
-              <span>आमच्याबद्दल (About Sai Satvik)</span>
+              <span>{t('about')}</span>
             </span>
 
             <h2 className="section-title" style={{ textAlign: 'left', marginBottom: '1rem' }}>
-              साई सात्विक डेअरी उत्पादने - शुद्धतेचा ध्यास, विश्वासाचे नाते!
+              {language === 'mr' 
+                ? 'साई सात्विक डेअरी उत्पादने - शुद्धतेचा ध्यास, विश्वासाचे नाते!' 
+                : 'Sai Satvik Dairy Products - Committed to Purity & Trust!'}
             </h2>
 
             <p className="marathi-body" style={{
@@ -83,7 +88,9 @@ export default function AboutSection() {
               lineHeight: 1.7,
               marginBottom: '1.25rem'
             }}>
-              मु.पो. टाकळी, ता. निफाड (जि. नाशिक) मधील **साई सात्विक डेअरी उत्पादने** हे ताज्या दूध आणि पारंपारिक मिठाईसाठी नावाजलेले ठिकाण आहे. ग्रामीण भागातील ताज्या दुधाचे शुद्ध संकलन करून ते कोणत्याही रासायनिक भेसळीशिवाय थेट ग्राहकांपर्यंत पोहोचवणे हे आमचे मुख्य उद्दिष्ट आहे.
+              {language === 'mr'
+                ? 'मु.पो. टाकळी, ता. निफाड (जि. नाशिक) मधील साई सात्विक डेअरी उत्पादने हे ताज्या दूध आणि पारंपारिक मिठाईसाठी नावाजलेले ठिकाण आहे. ग्रामीण भागातील ताज्या दुधाचे शुद्ध संकलन करून ते कोणत्याही रासायनिक भेसळीशिवाय थेट ग्राहकांपर्यंत पोहोचवणे हे आमचे मुख्य उद्दिष्ट आहे.'
+                : 'Located in Takali, Niphad, Nashik, Sai Satvik Dairy Products is renowned for fresh farm milk and traditional sweets. Our mission is to collect pure farm milk daily and deliver it directly to consumers without any adulteration.'}
             </p>
 
             <p style={{
@@ -92,7 +99,9 @@ export default function AboutSection() {
               lineHeight: 1.7,
               marginBottom: '1.75rem'
             }}>
-              आमच्याकडे गाई व म्हशीचे ताजे दूध, रवादार साजूक तूप, मऊ पनीर, घट्ट दही, ताक, केसर श्रीखंड आणि विविध प्रकारच्या स्वादिष्ट सणासुदीच्या मिठाई मिळतात.
+              {language === 'mr'
+                ? 'आमच्याकडे गाई व म्हशीचे ताजे दूध, रवादार साजूक तूप, मऊ पनीर, घट्ट दही, ताक, केसर श्रीखंड आणि विविध प्रकारच्या स्वादिष्ट सणासुदीच्या मिठाई मिळतात.'
+                : 'We offer fresh Cow and Buffalo milk, Desi Ghee, soft Paneer, thick Curd, Masala Taak, Kesar Shrikhand, and traditional festival sweets.'}
             </p>
 
             {/* Checklist */}
@@ -102,51 +111,23 @@ export default function AboutSection() {
               gap: '0.85rem',
               marginBottom: '2rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>
-                <CheckCircle2 size={18} style={{ color: 'var(--color-primary)' }} />
-                <span>१००% शुद्ध व सात्विक</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>
-                <CheckCircle2 size={18} style={{ color: 'var(--color-primary)' }} />
-                <span>पारंपारिक स्वच्छता</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>
-                <CheckCircle2 size={18} style={{ color: 'var(--color-primary)' }} />
-                <span>वाजवी दर (Fair Price)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>
-                <CheckCircle2 size={18} style={{ color: 'var(--color-primary)' }} />
-                <span>त्वरित होम डिलिव्हरी</span>
-              </div>
+              {[
+                language === 'mr' ? 'थेट शेतातून दररोज संकलन' : 'Fresh Farm Collection Daily',
+                language === 'mr' ? 'केमिकलमुक्त शुद्ध प्रक्रिया' : 'Chemical-Free Processing',
+                language === 'mr' ? 'हॉटेल व रिसॉर्ट्ससाठी B2B पुरवठा' : 'B2B Hotel & Resort Supply',
+                language === 'mr' ? 'स्थानिक जलद होम डिलिव्हरी' : 'Local Fast Home Delivery'
+              ].map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <CheckCircle2 size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>{item}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Contact Highlight Box */}
-            <div style={{
-              padding: '1.25rem',
-              backgroundColor: 'var(--color-white)',
-              borderRadius: 'var(--radius-md)',
-              borderLeft: '4px solid var(--color-primary)',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--color-granite)', fontWeight: 600 }}>संपर्क व चौकशी करा</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
-                  {BUSINESS_INFO.primaryPhone} / {BUSINESS_INFO.phones[1]}
-                </div>
-              </div>
-
-              <a 
-                href={`tel:${BUSINESS_INFO.primaryPhone}`} 
-                className="btn btn-primary"
-                style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem' }}
-              >
-                <Phone size={16} />
-                <span>आत्ताच कॉल करा</span>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <a href={`tel:${BUSINESS_INFO.primaryPhone}`} className="btn btn-primary" style={{ fontSize: '0.98rem' }}>
+                <Phone size={18} />
+                <span>{BUSINESS_INFO.primaryPhone}</span>
               </a>
             </div>
 

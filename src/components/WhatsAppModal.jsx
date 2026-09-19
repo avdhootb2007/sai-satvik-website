@@ -16,10 +16,10 @@ export default function WhatsAppModal({ isOpen, onClose, selectedProduct: initia
 
   const handleSendWhatsAppOrder = () => {
     const deliveryText = deliveryType === 'home' 
-      ? `🏠 होम डिलिव्हरी\n📍 पत्ता: ${addressNote || 'टाकळी / निफाड'}`
-      : `🏪 दुकानातून पिकअप (Store Pickup)`;
+      ? `होम डिलिव्हरी (Home Delivery)\nपत्ता: ${addressNote || 'टाकळी / निफाड'}`
+      : `दुकानातून पिकअप (Store Pickup)`;
 
-    const text = `नमस्कार साई सात्विक डेअरी!\n\nमला खालील ऑर्डर द्यायची आहे:\n📦 *उत्पादन:* ${activeProd.name} (${activeProd.englishName})\n📏 *साईज:* ${activeSz.label}\n🔢 *प्रमाण (Qty):* ${quantity}\n💰 *एकूण रक्कम:* ₹${totalPrice}\n\n${deliveryText}\n\nकृपया कन्फर्मेशन द्या. धन्यवाद!`;
+    const text = `नमस्कार साई सात्विक डेअरी!\n\nमला खालील ऑर्डर द्यायची आहे:\nउत्पादन: ${activeProd.name} (${activeProd.englishName})\nसाईज: ${activeSz.label}\nप्रमाण (Qty): ${quantity}\nएकूण रक्कम: ₹${totalPrice}\n\n${deliveryText}\n\nकृपया कन्फर्मेशन द्या. धन्यवाद!`;
 
     const encodedText = encodeURIComponent(text);
     const url = `https://wa.me/${BUSINESS_INFO.whatsappNumber}?text=${encodedText}`;

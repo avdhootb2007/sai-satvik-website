@@ -1,8 +1,11 @@
 import React from 'react';
-import { MessageCircle, ShoppingBag, PhoneCall, CheckCircle2, ShieldCheck, Heart, Sparkles, ArrowRight } from 'lucide-react';
+import { MessageCircle, ShoppingBag, PhoneCall, CheckCircle2, ShieldCheck, Heart, Sparkles } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/products';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Hero({ onOpenOrderModal }) {
+  const { language, t } = useLanguage();
+
   return (
     <section 
       id="hero" 
@@ -13,18 +16,6 @@ export default function Hero({ onOpenOrderModal }) {
         background: 'linear-gradient(180deg, var(--color-cream) 0%, var(--color-cold-air) 100%)'
       }}
     >
-      {/* Decorative Traditional Background Circles */}
-      <div style={{
-        position: 'absolute',
-        top: '-10%',
-        right: '-5%',
-        width: '450px',
-        height: '450px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(15, 90, 49, 0.06) 0%, rgba(212, 175, 55, 0.03) 70%, transparent 100%)',
-        pointerEvents: 'none'
-      }} />
-
       <div className="container">
         <div style={{
           display: 'grid',
@@ -51,10 +42,10 @@ export default function Hero({ onOpenOrderModal }) {
               marginBottom: '1.25rem'
             }}>
               <ShieldCheck size={18} style={{ color: 'var(--color-primary)' }} />
-              <span>१००% शुद्ध सात्विक ताजे दूध व पारंपारिक मिठाई</span>
+              <span>{t('bannerText')}</span>
             </div>
 
-            {/* Main Marathi Heading */}
+            {/* Main Heading */}
             <h1 className="marathi-heading" style={{
               fontSize: 'clamp(2.4rem, 5.5vw, 3.8rem)',
               color: 'var(--color-primary-dark)',
@@ -62,14 +53,14 @@ export default function Hero({ onOpenOrderModal }) {
               marginBottom: '1rem',
               fontWeight: 800
             }}>
-              शुद्ध सात्विक <br />
+              {language === 'mr' ? 'शुद्ध सात्विक' : 'Pure Satvik'} <br />
               <span style={{
                 color: 'var(--color-primary)',
                 background: 'linear-gradient(135deg, var(--color-primary) 0%, #1D8A4B 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               }}>
-                डेअरी उत्पादने
+                {language === 'mr' ? 'डेअरी उत्पादने' : 'Dairy Products'}
               </span>
             </h1>
 
@@ -92,10 +83,12 @@ export default function Hero({ onOpenOrderModal }) {
               lineHeight: 1.6,
               maxWidth: '560px'
             }}>
-              मु.पो. टाकळी, ता. निफाड मधील विश्वासार्ह नाव. दररोज सकाळी आणि संध्याकाळी थेट शेतातील ताजे गाई-म्हशीचे दूध, शुद्ध साजूक तूप, घट्ट दही, मऊ पनीर, श्रीखंड आणि सणासुदीसाठी खास मिठाई.
+              {language === 'mr'
+                ? 'मु.पो. टाकळी, ता. निफाड मधील विश्वासार्ह नाव. दररोज सकाळी आणि संध्याकाळी थेट शेतातील ताजे गाई-म्हशीचे दूध, शुद्ध साजूक तूप, घट्ट दही, मऊ पनीर, श्रीखंड आणि सणासुदीसाठी खास मिठाई.'
+                : 'Trusted name in Takali, Niphad, Nashik. Fresh farm-sourced Cow & Buffalo Milk, Pure Desi Ghee, Thick Curd, Soft Paneer, Shrikhand & Traditional Sweets delivered daily.'}
             </p>
 
-            {/* Three Prominent CTAs */}
+            {/* CTAs */}
             <div style={{
               display: 'flex',
               flexWrap: 'wrap',
@@ -103,34 +96,31 @@ export default function Hero({ onOpenOrderModal }) {
               alignItems: 'center',
               marginBottom: '2.5rem'
             }}>
-              {/* CTA 1: उत्पादने पहा */}
               <a 
                 href="#products" 
                 className="btn btn-primary"
                 style={{ fontSize: '1.05rem', padding: '0.9rem 1.8rem' }}
               >
                 <ShoppingBag size={20} />
-                <span>उत्पादने पहा</span>
+                <span>{language === 'mr' ? 'उत्पादने पहा' : 'View Products'}</span>
               </a>
 
-              {/* CTA 2: WhatsApp वर ऑर्डर करा */}
               <button 
                 onClick={() => onOpenOrderModal()}
                 className="btn btn-whatsapp"
                 style={{ fontSize: '1.05rem', padding: '0.9rem 1.8rem' }}
               >
                 <MessageCircle size={20} />
-                <span>WhatsApp वर ऑर्डर करा</span>
+                <span>{t('orderWhatsApp')}</span>
               </button>
 
-              {/* CTA 3: आमच्याशी संपर्क करा */}
               <a 
                 href="#contact" 
                 className="btn btn-secondary"
                 style={{ fontSize: '1.05rem', padding: '0.9rem 1.8rem' }}
               >
                 <PhoneCall size={20} />
-                <span>आमच्याशी संपर्क करा</span>
+                <span>{language === 'mr' ? 'आमच्याशी संपर्क करा' : 'Contact Us'}</span>
               </a>
             </div>
 
@@ -145,19 +135,19 @@ export default function Hero({ onOpenOrderModal }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <CheckCircle2 size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--color-granite-dark)' }}>
-                  १००% भेसळमुक्त
+                  {language === 'mr' ? '१००% भेसळमुक्त' : '100% Unadulterated'}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <CheckCircle2 size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--color-granite-dark)' }}>
-                  दररोज ताजे संकलन
+                  {language === 'mr' ? 'दररोज ताजे संकलन' : 'Fresh Daily Collection'}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <CheckCircle2 size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                 <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--color-granite-dark)' }}>
-                  पारंपारिक स्वच्छता
+                  {language === 'mr' ? 'पारंपारिक स्वच्छता' : 'Hygienic Traditional Process'}
                 </span>
               </div>
             </div>
@@ -167,8 +157,6 @@ export default function Hero({ onOpenOrderModal }) {
           {/* Right Visual Image Column */}
           <div style={{ gridColumn: 'span 12' }} className="hero-img-col">
             <div style={{ position: 'relative', width: '100%', maxWidth: '540px', margin: '0 auto' }}>
-              
-              {/* Main Banner Visual */}
               <div style={{
                 position: 'relative',
                 borderRadius: 'var(--radius-lg)',
@@ -179,104 +167,15 @@ export default function Hero({ onOpenOrderModal }) {
               }}>
                 <img 
                   src="/images/hero-banner.png" 
-                  alt="Sai Satvik Dairy Products Fresh Milk & Sweets Showcase" 
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                    maxHeight: '440px',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
+                  alt="Sai Satvik Fresh Dairy Products"
+                  style={{ width: '100%', height: 'auto', display: 'block', transform: 'scale(1.02)' }}
                 />
-
-                {/* Overlaid Tag */}
-                <div style={{
-                  position: 'absolute',
-                  top: '1rem',
-                  left: '1rem',
-                  backgroundColor: 'rgba(15, 90, 49, 0.92)',
-                  backdropFilter: 'blur(6px)',
-                  color: 'var(--color-white)',
-                  padding: '0.4rem 1rem',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}>
-                  <Sparkles size={16} style={{ color: 'var(--color-gold)' }} />
-                  <span>PURE FOR SURE</span>
-                </div>
               </div>
-
-              {/* Floating Badge Card 1 - Daily Pure Liters */}
-              <div className="animate-float" style={{
-                position: 'absolute',
-                bottom: '-1.5rem',
-                left: '-1.5rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-md)',
-                padding: '1rem 1.25rem',
-                boxShadow: 'var(--shadow-md)',
-                border: '1px solid rgba(15,90,49,0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.85rem',
-                zIndex: 2
-              }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--color-primary-soft)',
-                  color: 'var(--color-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800
-                }}>
-                  🥛
-                </div>
-                <div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>५००+ लिटर</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--color-granite)', fontWeight: 600 }}>दररोज ताजे दूध वितरण</div>
-                </div>
-              </div>
-
-              {/* Floating Badge Card 2 - Customer Rating */}
-              <div style={{
-                position: 'absolute',
-                top: '-1rem',
-                right: '-1rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.75rem 1.1rem',
-                boxShadow: 'var(--shadow-md)',
-                border: '1px solid rgba(212, 175, 55, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.65rem',
-                zIndex: 2
-              }}>
-                <div style={{ color: 'var(--color-gold-dark)', fontWeight: 800, fontSize: '1.1rem' }}>★ 4.9</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-granite-dark)' }}>
-                  ग्राहकांचा विश्वास
-                </div>
-              </div>
-
             </div>
           </div>
 
         </div>
       </div>
-
-      <style>{`
-        @media (min-width: 992px) {
-          .hero-text-col { grid-column: span 7 !important; }
-          .hero-img-col { grid-column: span 5 !important; }
-        }
-      `}</style>
     </section>
   );
 }

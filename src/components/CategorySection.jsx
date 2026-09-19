@@ -1,9 +1,11 @@
 import React from 'react';
 import { Milk, Container, GlassWater, Box, Flame, UtensilsCrossed, Sparkles, Gift } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function CategorySection({ activeCategory, onSelectCategory }) {
-  // Map icons
+  const { language, t } = useLanguage();
+
   const iconMap = {
     milk: Milk,
     curd: Container,
@@ -15,7 +17,6 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
     sweets: Gift
   };
 
-  // Category cards data (filtering out 'all')
   const categoryCards = CATEGORIES.filter(c => c.id !== 'all');
 
   return (
@@ -26,15 +27,19 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
         <div className="section-header">
           <span className="section-subtitle">
             <Sparkles size={16} />
-            <span>उत्पादन श्रेणी (Categories)</span>
+            <span>{t('categories')}</span>
           </span>
-          <h2 className="section-title">आमची खास सात्विक श्रेणी</h2>
+          <h2 className="section-title">
+            {language === 'mr' ? 'आमची खास सात्विक श्रेणी' : 'Our Product Categories'}
+          </h2>
           <p className="section-desc">
-            ताज्या दुधापासून बनवलेली १००% शुद्ध डेअरी उत्पादने व तोंडाला पाणी आणणारी पारंपारिक मिठाई.
+            {language === 'mr' 
+              ? 'ताज्या दुधापासून बनवलेली १००% शुद्ध डेअरी उत्पादने व तोंडाला पाणी आणणारी पारंपारिक मिठाई.' 
+              : '100% pure fresh dairy products and delicious traditional sweets made with pure ingredients.'}
           </p>
         </div>
 
-        {/* Categories 8 Grid */}
+        {/* Categories Grid */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -67,7 +72,6 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
                   gap: '0.85rem'
                 }}
               >
-                {/* Category Icon */}
                 <div style={{
                   width: '60px',
                   height: '60px',
@@ -83,16 +87,14 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
                   <IconComponent size={28} />
                 </div>
 
-                {/* Marathi Title */}
                 <h3 className="marathi-heading" style={{
                   fontSize: '1.35rem',
                   fontWeight: 700,
                   color: isSelected ? 'var(--color-primary-dark)' : 'var(--color-granite-dark)'
                 }}>
-                  {cat.name}
+                  {language === 'mr' ? cat.name : cat.english}
                 </h3>
 
-                {/* English Subtitle */}
                 <span style={{
                   fontSize: '0.85rem',
                   fontWeight: 600,
@@ -100,20 +102,7 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  {cat.english}
-                </span>
-
-                {/* Explore Badge */}
-                <span style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  color: 'var(--color-primary)',
-                  marginTop: '0.25rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.2rem'
-                }}>
-                  पहा &rarr;
+                  {language === 'mr' ? cat.english : cat.name}
                 </span>
               </div>
             );

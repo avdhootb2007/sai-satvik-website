@@ -1,37 +1,40 @@
 import React from 'react';
 import { ShieldCheck, Sun, Sparkles, HeartHandshake, Truck, Award } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function WhyUs() {
+  const { language, t } = useLanguage();
+
   const features = [
     {
       icon: ShieldCheck,
-      title: '१००% शुद्ध व भेसळमुक्त',
-      desc: 'आमचे दूध व सर्व उत्पादने कोणत्याही प्रकारच्या रासायनिक भेसळीशिवाय पूर्णपणे शुद्ध व सात्विक असतात.'
+      title: language === 'mr' ? '१००% शुद्ध व भेसळमुक्त' : '100% Pure & Unadulterated',
+      desc: language === 'mr' ? 'आमचे दूध व सर्व उत्पादने कोणत्याही प्रकारच्या रासायनिक भेसळीशिवाय पूर्णपणे शुद्ध व सात्विक असतात.' : 'All our milk and dairy products are completely pure, satvik, and chemical-free.'
     },
     {
       icon: Sun,
-      title: 'दररोज ताजे संकलन',
-      desc: 'दररोज सकाळी आणि संध्याकाळी थेट निफाड परिसरातील शेतकऱ्यांकडून ताजे दूध संकलित केले जाते.'
+      title: language === 'mr' ? 'दररोज ताजे संकलन' : 'Fresh Daily Collection',
+      desc: language === 'mr' ? 'दररोज सकाळी आणि संध्याकाळी थेट निफाड परिसरातील शेतकऱ्यांकडून ताजे दूध संकलित केले जाते.' : 'Fresh cow and buffalo milk collected daily morning and evening from Niphad farmers.'
     },
     {
       icon: Sparkles,
-      title: 'अस्सल पारंपारिक चव',
-      desc: 'शुद्ध खवा, साजूक तूप आणि पारंपारिक पाककृतींचा वापर करून बनवलेली महाराष्ट्रीयन स्वादिष्ट मिठाई.'
+      title: language === 'mr' ? 'अस्सल पारंपारिक चव' : 'Authentic Traditional Taste',
+      desc: language === 'mr' ? 'शुद्ध खवा, साजूक तूप आणि पारंपारिक पाककृतींचा वापर करून बनवलेली महाराष्ट्रीयन स्वादिष्ट मिठाई.' : 'Traditional Maharashtrian sweets crafted with pure khawa, desi ghee, and authentic recipes.'
     },
     {
       icon: HeartHandshake,
-      title: 'उत्तम स्वच्छता व दर्जा',
-      desc: 'प्रक्रियेच्या प्रत्येक टप्प्यावर कडक स्वच्छता मानके पाळली जातात, ज्यामुळे तुम्हाला मिळते सर्वोत्तम दर्जा.'
+      title: language === 'mr' ? 'उत्तम स्वच्छता व दर्जा' : 'Hygienic Standards',
+      desc: language === 'mr' ? 'प्रक्रियेच्या प्रत्येक टप्प्यावर कडक स्वच्छता मानके पाळली जातात, ज्यामुळे तुम्हाला मिळते सर्वोत्तम दर्जा.' : 'Strict hygiene standards maintained at every step to deliver uncompromised quality.'
     },
     {
       icon: Truck,
-      title: 'स्थानिक होम डिलिव्हरी',
-      desc: 'टाकळी, साई नगर आणि निफाड परिसरात जलद व वेळेवर होम डिलिव्हरी उपलब्ध.'
+      title: language === 'mr' ? 'स्थानिक होम डिलिव्हरी' : 'Local Home Delivery',
+      desc: language === 'mr' ? 'टाकळी, साई नगर आणि निफाड परिसरात जलद व वेळेवर होम डिलिव्हरी उपलब्ध.' : 'Fast and punctual doorstep delivery across Takali, Sai Nagar, and Niphad area.'
     },
     {
       icon: Award,
-      title: 'समारंभासाठी बल्क ऑर्डर',
-      desc: 'लग्नकार्य, पूजा व सणासुदीच्या कार्यक्रमांसाठी स्पेशल मिठाई व डेअरी प्रॉडक्ट्सची घाऊक ऑर्डर स्वीकारली जाते.'
+      title: language === 'mr' ? 'समारंभासाठी बल्क ऑर्डर' : 'Bulk Event Orders',
+      desc: language === 'mr' ? 'लग्नकार्य, पूजा व सणासुदीच्या कार्यक्रमांसाठी स्पेशल मिठाई व डेअरी प्रॉडक्ट्सची घाऊक ऑर्डर स्वीकारली जाते.' : 'Wholesale bulk supply available for weddings, festivals, pujas, and corporate events.'
     }
   ];
 
@@ -43,11 +46,15 @@ export default function WhyUs() {
         <div className="section-header">
           <span className="section-subtitle">
             <Award size={16} />
-            <span>आमची खास वैशिष्ट्ये (Why Choose Us)</span>
+            <span>{t('whyUs')}</span>
           </span>
-          <h2 className="section-title">साई सात्विकच का निवडावे?</h2>
+          <h2 className="section-title">
+            {language === 'mr' ? 'साई सात्विकच का निवडावे?' : 'Why Choose Sai Satvik?'}
+          </h2>
           <p className="section-desc">
-            तुमच्या आणि तुमच्या कुटुंबाच्या आरोग्यासाठी आम्ही घेऊन आलो आहोत १००% शुद्ध, ताजी आणि सात्विक उत्पादने.
+            {language === 'mr'
+              ? 'तुमच्या आणि तुमच्या कुटुंबाच्या आरोग्यासाठी आम्ही घेऊन आलो आहोत १००% शुद्ध, ताजी आणि सात्विक उत्पादने.'
+              : 'We bring 100% pure, fresh, and wholesome dairy products for your family\'s health.'}
           </p>
         </div>
 

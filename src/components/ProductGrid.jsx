@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, Filter, X } from 'lucide-react';
+import { Search, Sparkles, X } from 'lucide-react';
 import { PRODUCTS, CATEGORIES } from '../data/products';
 import ProductCard from './ProductCard';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ProductGrid({ activeCategory, onSelectCategory, onOrderClick }) {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter products based on selected category & search query
   const filteredProducts = PRODUCTS.filter((product) => {
     const matchesCategory = activeCategory === 'all' || product.category === activeCategory;
     const matchesSearch = 
@@ -24,11 +25,15 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
         <div className="section-header">
           <span className="section-subtitle">
             <Sparkles size={16} />
-            <span>खास उत्पादने (Featured Products)</span>
+            <span>{t('products')}</span>
           </span>
-          <h2 className="section-title">शुद्ध व ताजे डेअरी प्रोडक्ट्स व मिठाई</h2>
+          <h2 className="section-title">
+            {language === 'mr' ? 'शुद्ध व ताजे डेअरी प्रोडक्ट्स व मिठाई' : 'Pure Fresh Dairy Products & Sweets'}
+          </h2>
           <p className="section-desc">
-            तुमच्या पसंतीचे उत्पादन निवडा आणि थेट WhatsApp वरून होम डिलिव्हरी किंवा स्टोअर पिकअपसाठी ऑर्डर करा.
+            {language === 'mr' 
+              ? 'तुमच्या पसंतीचे उत्पादन निवडा आणि थेट WhatsApp वरून होम डिलिव्हरी किंवा स्टोअर पिकअपसाठी ऑर्डर करा.'
+              : 'Select your preferred products and order directly via WhatsApp for Home Delivery or Store Pickup.'}
           </p>
         </div>
 
@@ -63,7 +68,7 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
             />
             <input 
               type="text"
-              placeholder="उत्पादन शोधा (Search milk, ghee, peda, paneer...)"
+              placeholder={language === 'mr' ? 'उत्पादन शोधा (दूध, तूप, पनीर, दही...)' : 'Search products (Milk, Ghee, Paneer, Curd...)'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -96,14 +101,15 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
             )}
           </div>
 
-          {/* Bottom Row: Category Tabs Pills */}
+          {/* Category Tabs Pills */}
           <div style={{
             display: 'flex',
-            gap: '0.5rem',
+            gap: '0.6rem',
             overflowX: 'auto',
-            paddingBottom: '0.4rem',
-            justifyContent: 'flex-start'
-          }} className="category-tabs-scroll">
+            paddingBottom: '0.25rem',
+            justifyContent: 'center',
+            flexWrap: 'wrap'
+          }}>
             {CATEGORIES.map((cat) => {
               const isSelected = activeCategory === cat.id;
               return (
@@ -111,20 +117,20 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
                   key={cat.id}
                   onClick={() => onSelectCategory(cat.id)}
                   style={{
-                    padding: '0.55rem 1.25rem',
-                    borderRadius: 'var(--radius-full)',
-                    border: 'none',
-                    fontSize: '0.92rem',
+                    padding: '0.5rem 1.1rem',
+                    fontSize: '0.9rem',
                     fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'var(--transition-fast)',
-                    backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--color-cream)',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid',
+                    borderColor: isSelected ? 'var(--color-primary)' : 'rgba(15, 90, 49, 0.15)',
+                    backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--color-white)',
                     color: isSelected ? 'var(--color-white)' : 'var(--color-granite-dark)',
-                    boxShadow: isSelected ? '0 4px 12px rgba(15, 90, 49, 0.25)' : 'none'
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  {cat.name} ({cat.id === 'all' ? PRODUCTS.length : PRODUCTS.filter(p => p.category === cat.id).length})
+                  {language === 'mr' ? cat.name : cat.english}
                 </button>
               );
             })}
@@ -133,7 +139,31 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
         </div>
 
         {/* Product Cards Grid */}
-        {filteredProducts.length > 0 ? (
+        {filteredProducts.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '4rem 1rem',
+            backgroundColor: 'var(--color-white)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <h3 className="marathi-heading" style={{ fontSize: '1.4rem', color: 'var(--color-granite-dark)', marginBottom: '0.5rem' }}>
+              {language === 'mr' ? 'कोणतेही उत्पादन सापडले नाही' : 'No matching products found'}
+            </h3>
+            <p style={{ color: 'var(--color-granite)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
+              {language === 'mr' ? 'कृपया फिल्टर किंवा शोध शब्द बदलून पहा.' : 'Please try searching with another keyword or filter.'}
+            </p>
+            <button
+              onClick={() => {
+                onSelectCategory('all');
+                setSearchQuery('');
+              }}
+              className="btn btn-secondary"
+            >
+              {language === 'mr' ? 'सर्व उत्पादने पहा' : 'Show All Products'}
+            </button>
+          </div>
+        ) : (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -146,28 +176,6 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
                 onOrderClick={onOrderClick}
               />
             ))}
-          </div>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '4rem 1.5rem',
-            backgroundColor: 'var(--color-white)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-            <h3 className="marathi-heading" style={{ fontSize: '1.5rem', color: 'var(--color-primary-dark)', marginBottom: '0.5rem' }}>
-              कोणतेही उत्पादन सापडले नाही
-            </h3>
-            <p style={{ color: 'var(--color-granite)', marginBottom: '1.5rem' }}>
-              कृपया शोध शब्द बदला किंवा सर्व उत्पादने श्रेणी पहा.
-            </p>
-            <button 
-              onClick={() => { setSearchQuery(''); onSelectCategory('all'); }}
-              className="btn btn-primary"
-            >
-              सर्व उत्पादने पहा
-            </button>
           </div>
         )}
 

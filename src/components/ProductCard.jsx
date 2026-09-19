@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { MessageCircle, CheckCircle, Tag } from 'lucide-react';
-import { BUSINESS_INFO } from '../data/products';
+import { MessageCircle, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ProductCard({ product, onOrderClick }) {
+  const { language, t } = useLanguage();
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
   const currentSize = product.sizes[selectedSizeIndex];
 
@@ -74,7 +75,7 @@ export default function ProductCard({ product, onOrderClick }) {
             padding: '0.25rem 0.65rem',
             borderRadius: 'var(--radius-full)'
           }}>
-            ★ बेस्ट सेलर
+            {language === 'mr' ? 'बेस्ट सेलर' : 'BEST SELLER'}
           </div>
         )}
       </div>
@@ -87,7 +88,7 @@ export default function ProductCard({ product, onOrderClick }) {
         flexGrow: 1
       }}>
         
-        {/* Category & English name */}
+        {/* Subtitle */}
         <div style={{
           fontSize: '0.82rem',
           fontWeight: 700,
@@ -95,10 +96,10 @@ export default function ProductCard({ product, onOrderClick }) {
           textTransform: 'uppercase',
           marginBottom: '0.25rem'
         }}>
-          {product.englishName}
+          {language === 'mr' ? product.englishName : product.category.toUpperCase()}
         </div>
 
-        {/* Marathi Product Title */}
+        {/* Main Title */}
         <h3 className="marathi-heading" style={{
           fontSize: '1.35rem',
           fontWeight: 800,
@@ -106,102 +107,79 @@ export default function ProductCard({ product, onOrderClick }) {
           marginBottom: '0.5rem',
           lineHeight: 1.25
         }}>
-          {product.name}
+          {language === 'mr' ? product.name : product.englishName}
         </h3>
 
         {/* Description */}
         <p style={{
-          fontSize: '0.92rem',
+          fontSize: '0.9rem',
           color: 'var(--color-granite)',
           lineHeight: 1.5,
-          marginBottom: '1rem',
+          marginBottom: '1.25rem',
           flexGrow: 1
         }}>
           {product.description}
         </p>
 
-        {/* Size Selection Radio Pills */}
+        {/* Sizes Selector */}
         <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{
-            fontSize: '0.82rem',
-            fontWeight: 700,
-            color: 'var(--color-granite-dark)',
-            marginBottom: '0.4rem',
-            display: 'flex',
-            justifyContent: 'space-between'
-          }}>
-            <span>उपलब्ध साईझ (Sizes):</span>
-            <span style={{ color: 'var(--color-primary)', fontWeight: 800 }}>
-              ₹{currentSize.price}
-            </span>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-granite-dark)', marginBottom: '0.4rem' }}>
+            {language === 'mr' ? 'साईज निवडा:' : 'Select Size:'}
           </div>
-          
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {product.sizes.map((size, idx) => (
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {product.sizes.map((sz, idx) => (
               <button
-                key={idx}
+                key={sz.label}
+                type="button"
                 onClick={() => setSelectedSizeIndex(idx)}
                 style={{
-                  padding: '0.35rem 0.75rem',
+                  padding: '0.35rem 0.65rem',
                   fontSize: '0.82rem',
                   fontWeight: 700,
                   borderRadius: 'var(--radius-sm)',
-                  border: idx === selectedSizeIndex 
-                    ? '2px solid var(--color-primary)' 
-                    : '1px solid rgba(15, 90, 49, 0.15)',
-                  backgroundColor: idx === selectedSizeIndex 
-                    ? 'var(--color-primary-soft)' 
-                    : 'var(--color-white)',
-                  color: idx === selectedSizeIndex 
-                    ? 'var(--color-primary-dark)' 
-                    : 'var(--color-granite)',
+                  border: selectedSizeIndex === idx ? '2px solid var(--color-primary)' : '1px solid rgba(15, 90, 49, 0.2)',
+                  backgroundColor: selectedSizeIndex === idx ? 'var(--color-primary-soft)' : 'var(--color-white)',
+                  color: selectedSizeIndex === idx ? 'var(--color-primary-dark)' : 'var(--color-granite-dark)',
                   cursor: 'pointer',
                   transition: 'var(--transition-fast)'
                 }}
               >
-                {size.label} - ₹{size.price}
+                {sz.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Bottom Price & Order Button */}
+        {/* Price & Order Action Row */}
         <div style={{
-          paddingTop: '0.85rem',
-          borderTop: '1px solid rgba(15, 90, 49, 0.08)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.75rem'
+          paddingTop: '0.85rem',
+          borderTop: '1px solid rgba(15, 90, 49, 0.1)'
         }}>
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-granite)', display: 'block' }}>किंमत (Price)</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-granite)', display: 'block' }}>
+              {language === 'mr' ? 'एकूण किंमत' : 'Price'}
+            </span>
+            <span style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
               ₹{currentSize.price}
             </span>
           </div>
 
           <button
+            type="button"
             onClick={handleWhatsAppClick}
             className="btn btn-whatsapp"
-            style={{
-              padding: '0.65rem 1.1rem',
-              fontSize: '0.9rem',
-              borderRadius: 'var(--radius-full)'
-            }}
+            style={{ fontSize: '0.88rem', padding: '0.55rem 1.1rem' }}
           >
-            <MessageCircle size={17} />
-            <span>ऑर्डर करा</span>
+            <MessageCircle size={16} />
+            <span>{language === 'mr' ? 'ऑर्डर करा' : 'Order Now'}</span>
           </button>
         </div>
 
       </div>
 
-      <style>{`
-        .card-base:hover .product-card-img {
-          transform: scale(1.05);
-        }
-      `}</style>
     </div>
   );
 }

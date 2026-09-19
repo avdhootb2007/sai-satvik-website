@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, MessageCircle, Menu, X, ShoppingBag, MapPin, Award } from 'lucide-react';
+import { Phone, MessageCircle, Menu, X, Award, LogOut, Hotel, ShieldCheck, Globe } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/products';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
-export default function Navbar({ onOpenOrderModal, activeSection }) {
+export default function Navbar({ onOpenOrderModal }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const {
+    user,
+    activePortal,
+    setActivePortal,
+    setIsHotelAuthOpen,
+    setIsManagerAuthOpen,
+    setHotelAuthMode,
+    setManagerAuthMode,
+    logout
+  } = useAuth();
+
+  const { language, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,18 +34,18 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
   }, []);
 
   const navLinks = [
-    { name: 'मुख्य (Home)', href: '#hero' },
-    { name: 'श्रेणी (Categories)', href: '#categories' },
-    { name: 'उत्पादने (Products)', href: '#products' },
-    { name: 'खासियत (Why Us)', href: '#why-us' },
-    { name: 'आमच्याबद्दल (About)', href: '#about' },
-    { name: 'पत्ता (Location)', href: '#location' },
-    { name: 'संपर्क (Contact)', href: '#contact' },
+    { name: t('home'), href: '#hero', onClick: () => setActivePortal('none') },
+    { name: t('categories'), href: '#categories', onClick: () => setActivePortal('none') },
+    { name: t('products'), href: '#products', onClick: () => setActivePortal('none') },
+    { name: t('whyUs'), href: '#why-us', onClick: () => setActivePortal('none') },
+    { name: t('about'), href: '#about', onClick: () => setActivePortal('none') },
+    { name: t('location'), href: '#location', onClick: () => setActivePortal('none') },
+    { name: t('contact'), href: '#contact', onClick: () => setActivePortal('none') },
   ];
 
   return (
     <>
-      {/* Top Banner Bar for Trust & Quick Phone */}
+      {/* Top Banner Bar for Trust, Language Selector & Phone */}
       <div style={{
         backgroundColor: 'var(--color-primary-dark)',
         color: '#EBF5EE',
@@ -41,17 +56,97 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
             <Award size={15} style={{ color: 'var(--color-gold)' }} />
-            <span>१००% शुद्ध सात्विक ताजे दूध व पारंपारिक मिठाई | निफाड, नाशिक</span>
+            <span>{t('bannerText')}</span>
           </div>
-          <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }} className="top-banner-right">
-            <a href={`tel:${BUSINESS_INFO.primaryPhone}`} style={{ color: '#EBF5EE', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
-              <Phone size={14} style={{ color: 'var(--color-gold)' }} />
-              <span>{BUSINESS_INFO.primaryPhone}</span>
-            </a>
-            <span style={{ opacity: 0.4 }}>|</span>
-            <a href={`tel:${BUSINESS_INFO.phones[1]}`} style={{ color: '#EBF5EE', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
-              <span>{BUSINESS_INFO.phones[1]}</span>
-            </a>
+
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }} className="top-banner-right">
+            
+            {/* Language Toggle Button */}
+            <button
+              onClick={toggleLanguage}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                color: 'var(--color-gold)',
+                border: '1px solid var(--color-gold)',
+                borderRadius: '4px',
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Globe size={14} />
+              <span>{language === 'mr' ? 'English' : 'मराठी'}</span>
+            </button>
+
+            {user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ color: 'var(--color-gold)', fontWeight: 700, fontSize: '0.82rem' }}>
+                  {user.role === 'dairy_manager' ? `${t('dairyManager')}:` : 'B2B Client:'} {user.business_name}
+                </span>
+                <button
+                  onClick={logout}
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <LogOut size={12} /> {t('logout')}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    setHotelAuthMode('login');
+                    setIsHotelAuthOpen(true);
+                  }}
+                  style={{
+                    backgroundColor: 'var(--color-gold)',
+                    color: 'var(--color-primary-dark)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '3px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hotel Login
+                </button>
+
+                <button
+                  onClick={() => {
+                    setManagerAuthMode('login');
+                    setIsManagerAuthOpen(true);
+                  }}
+                  style={{
+                    backgroundColor: '#FEF3C7',
+                    color: '#78350F',
+                    border: '1px solid #F59E0B',
+                    borderRadius: '4px',
+                    padding: '3px 10px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Manager Login
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
@@ -70,7 +165,11 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem' }}>
           
           {/* Brand Logo & Name */}
-          <a href="#hero" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', textDecoration: 'none' }}>
+          <a 
+            href="#hero" 
+            onClick={() => setActivePortal('none')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', textDecoration: 'none' }}
+          >
             <img 
               src="/sai-satvik-logo.png" 
               alt="Sai Satvik Dairy Products Logo" 
@@ -83,7 +182,7 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
                 color: 'var(--color-primary-dark)',
                 lineHeight: 1.15
               }}>
-                साई सात्विक
+                {language === 'mr' ? 'साई सात्विक' : 'Sai Satvik'}
               </span>
               <span style={{
                 fontSize: '0.75rem',
@@ -99,19 +198,19 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
 
           {/* Desktop Links */}
           <nav style={{ display: 'none' }} className="desktop-nav">
-            <ul style={{ display: 'flex', gap: '1.5rem', listStyle: 'none', alignItems: 'center' }}>
+            <ul style={{ display: 'flex', gap: '1.25rem', listStyle: 'none', alignItems: 'center', margin: 0, padding: 0 }}>
               {navLinks.map((link) => (
                 <li key={link.href}>
                   <a 
                     href={link.href} 
+                    onClick={link.onClick}
                     style={{
                       textDecoration: 'none',
                       color: 'var(--color-granite-dark)',
                       fontWeight: 600,
-                      fontSize: '0.98rem',
-                      padding: '0.5rem 0.25rem',
-                      transition: 'var(--transition-fast)',
-                      position: 'relative'
+                      fontSize: '0.95rem',
+                      padding: '0.4rem 0.2rem',
+                      transition: 'var(--transition-fast)'
                     }}
                     onMouseEnter={(e) => e.target.style.color = 'var(--color-primary)'}
                     onMouseLeave={(e) => e.target.style.color = 'var(--color-granite-dark)'}
@@ -123,15 +222,67 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
             </ul>
           </nav>
 
-          {/* Desktop Right CTA */}
-          <div style={{ display: 'none', alignItems: 'center', gap: '0.75rem' }} className="desktop-cta">
-            <button 
-              onClick={() => onOpenOrderModal()}
-              className="btn btn-whatsapp"
-              style={{ fontSize: '0.92rem', padding: '0.65rem 1.3rem' }}
+          {/* Desktop Right CTA: Separate Portal Buttons */}
+          <div style={{ display: 'none', alignItems: 'center', gap: '0.6rem' }} className="desktop-cta">
+            
+            {/* Hotel / Resort B2B Portal Button */}
+            <button
+              onClick={() => {
+                if (!user || user.role !== 'hotel_resort') {
+                  setHotelAuthMode('login');
+                  setIsHotelAuthOpen(true);
+                } else {
+                  setActivePortal(activePortal === 'hotel_resort' ? 'none' : 'hotel_resort');
+                }
+              }}
+              style={{
+                backgroundColor: activePortal === 'hotel_resort' ? 'var(--color-primary)' : '#FFFFFF',
+                color: activePortal === 'hotel_resort' ? '#FFFFFF' : 'var(--color-primary-dark)',
+                border: '1.5px solid var(--color-primary)',
+                borderRadius: '8px',
+                padding: '0.55rem 0.85rem',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s ease'
+              }}
             >
-              <MessageCircle size={18} />
-              <span>WhatsApp वर ऑर्डर करा</span>
+              <Hotel size={16} color={activePortal === 'hotel_resort' ? '#FFF' : 'var(--color-primary)'} />
+              <span>{t('hotelPortal')}</span>
+            </button>
+
+            {/* Dairy Manager Portal Button */}
+            <button
+              onClick={() => {
+                if (!user || user.role !== 'dairy_manager') {
+                  setManagerAuthMode('login');
+                  setIsManagerAuthOpen(true);
+                } else {
+                  setActivePortal(activePortal === 'dairy_manager' ? 'none' : 'dairy_manager');
+                }
+              }}
+              style={{
+                backgroundColor: activePortal === 'dairy_manager' ? '#78350F' : '#FEF3C7',
+                color: activePortal === 'dairy_manager' ? '#FFFFFF' : '#92400E',
+                border: '1.5px solid #F59E0B',
+                borderRadius: '8px',
+                padding: '0.55rem 0.85rem',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <ShieldCheck size={16} />
+              <span>{t('dairyManager')}</span>
             </button>
           </div>
 
@@ -156,105 +307,185 @@ export default function Navbar({ onOpenOrderModal, activeSection }) {
           </button>
         </div>
 
-        {/* Responsive CSS Helper Styles injected inline for breakpoint display */}
+        {/* Responsive CSS Helper Styles */}
         <style>{`
           @media (min-width: 992px) {
             .desktop-nav { display: block !important; }
             .desktop-cta { display: flex !important; }
             .mobile-hamburger { display: none !important; }
           }
-          @media (max-width: 640px) {
+          @media (max-width: 768px) {
             .top-banner-right { display: none !important; }
           }
         `}</style>
-      </header>
 
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div 
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 999,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            justifyContent: 'flex-end'
-          }}
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        {/* Mobile Slide Drawer */}
+        {mobileMenuOpen && (
           <div 
             style={{
-              width: '85%',
-              maxWidth: '340px',
-              height: '100%',
-              backgroundColor: 'var(--color-cream)',
-              padding: '2rem 1.5rem',
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1100,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
               display: 'flex',
-              flexDirection: 'column',
-              gap: '1.5rem',
-              boxShadow: 'var(--shadow-lg)'
+              justify: 'flex-end'
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setMobileMenuOpen(false)}
           >
-            {/* Drawer Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(15,90,49,0.1)', pb: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <img src="/sai-satvik-logo.png" alt="Sai Satvik" style={{ height: '40px' }} />
-                <span className="marathi-heading" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>साई सात्विक</span>
+            <div 
+              style={{
+                width: '85%',
+                maxWidth: '340px',
+                height: '100%',
+                backgroundColor: 'var(--color-cream)',
+                padding: '2rem 1.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem',
+                boxShadow: 'var(--shadow-lg)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drawer Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(15,90,49,0.1)', paddingBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <img src="/sai-satvik-logo.png" alt="Sai Satvik" style={{ height: '40px' }} />
+                  <span className="marathi-heading" style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>साई सात्विक</span>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-granite)' }}>
+                  <X size={24} />
+                </button>
               </div>
-              <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-granite)' }}>
-                <X size={24} />
-              </button>
-            </div>
 
-            {/* Links */}
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <a 
-                    href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '0.75rem 1rem',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--color-primary-dark)',
-                      fontWeight: 700,
-                      fontSize: '1.05rem',
-                      textDecoration: 'none',
-                      backgroundColor: 'rgba(15,90,49,0.04)'
-                    }}
-                  >
-                    {link.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-
-            {/* Action Buttons in Drawer */}
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button 
-                onClick={() => { setMobileMenuOpen(false); onOpenOrderModal(); }}
-                className="btn btn-whatsapp"
-                style={{ width: '100%', justifyContent: 'center' }}
+              {/* Language Switcher in Mobile Drawer */}
+              <button
+                onClick={toggleLanguage}
+                style={{
+                  backgroundColor: 'var(--color-primary-soft)',
+                  color: 'var(--color-primary-dark)',
+                  border: '1px solid var(--color-primary)',
+                  borderRadius: '6px',
+                  padding: '0.5rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
               >
-                <MessageCircle size={20} />
-                <span>WhatsApp वर ऑर्डर करा</span>
+                <Globe size={16} /> Language: {language === 'mr' ? 'English' : 'मराठी'}
               </button>
 
-              <a 
-                href={`tel:${BUSINESS_INFO.primaryPhone}`} 
-                className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                <Phone size={20} />
-                <span>फोन वर संपर्क करा</span>
-              </a>
+              {/* Portals Shortcuts in Mobile Menu */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (!user || user.role !== 'hotel_resort') {
+                      setIsHotelAuthOpen(true);
+                    } else {
+                      setActivePortal('hotel_resort');
+                    }
+                  }}
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#FFF',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontWeight: 800,
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Hotel size={18} /> {t('hotelPortal')}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (!user || user.role !== 'dairy_manager') {
+                      setIsManagerAuthOpen(true);
+                    } else {
+                      setActivePortal('dairy_manager');
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#FEF3C7',
+                    color: '#92400E',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #F59E0B',
+                    fontWeight: 800,
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <ShieldCheck size={18} /> {t('dairyManager')}
+                </button>
+              </div>
+
+              {/* Links */}
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem', margin: 0, padding: 0 }}>
+                {navLinks.map((link) => (
+                  <li key={link.href}>
+                    <a 
+                      href={link.href}
+                      onClick={() => {
+                        link.onClick();
+                        setMobileMenuOpen(false);
+                      }}
+                      style={{
+                        display: 'block',
+                        padding: '0.6rem 0.75rem',
+                        color: 'var(--color-granite-dark)',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                    >
+                      {link.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+
+              {user && (
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  style={{
+                    padding: '0.75rem',
+                    backgroundColor: '#FEE2E2',
+                    color: '#991B1B',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {t('logout')}
+                </button>
+              )}
+
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </header>
     </>
   );
 }
