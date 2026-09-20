@@ -19,20 +19,23 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useProducts } from '../context/ProductContext';
 import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, getStoredDemoProducts } from '../lib/supabase';
 
 export default function HotelResortPortal() {
   const { user } = useAuth();
   const { language, t } = useLanguage();
+  const { products: contextProducts } = useProducts();
 
   const [activeTab, setActiveTab] = useState('new_order');
-  const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [cart, setCart] = useState({});
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState('');
+
+  const products = contextProducts;
 
   const [recurringConfig, setRecurringConfig] = useState(() => {
     const saved = localStorage.getItem('sai_satvik_recurring_' + (user?.id || 'demo'));
@@ -41,14 +44,31 @@ export default function HotelResortPortal() {
 
   useEffect(() => {
     fetchProductsAndOrders();
+
+    let channel = null;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        channel = supabase
+          .channel('public:orders')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            fetchProductsAndOrders();
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Orders real-time subscription error:", err);
+      }
+    }
+
+    return () => {
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [user]);
 
   const fetchProductsAndOrders = async () => {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: prods } = await supabase.from('products').select('*');
-        if (prods) setProducts(prods);
-
         if (user?.id) {
           const { data: ords } = await supabase
             .from('orders')
@@ -61,7 +81,6 @@ export default function HotelResortPortal() {
         console.error("Error fetching Supabase B2B data:", err);
       }
     } else {
-      setProducts(getStoredDemoProducts());
       const allDemoOrders = getStoredDemoOrders();
       const userOrders = allDemoOrders.filter(o => o.user_id === user?.id || o.user_id === 'user-hotel-1' || o.user_id === 'hotel-001' || o.user_id === 'hotel-demo');
       setOrders(userOrders.length > 0 ? userOrders : allDemoOrders);

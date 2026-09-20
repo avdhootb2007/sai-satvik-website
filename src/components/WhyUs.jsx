@@ -43,12 +43,12 @@ export default function WhyUs() {
       <div className="container">
         
         {/* Section Header */}
-        <div className="section-header">
-          <span className="section-subtitle">
+        <div className="section-header animate-text-reveal">
+          <span className="section-subtitle glass-badge">
             <Award size={16} />
             <span>{t('whyUs')}</span>
           </span>
-          <h2 className="section-title">
+          <h2 className="section-title animate-text-shimmer">
             {language === 'mr' ? 'साई सात्विकच का निवडावे?' : 'Why Choose Sai Satvik?'}
           </h2>
           <p className="section-desc">
@@ -69,7 +69,7 @@ export default function WhyUs() {
             return (
               <div 
                 key={idx} 
-                className="card-base"
+                className="glass-card"
                 style={{
                   padding: '2rem 1.5rem',
                   display: 'flex',

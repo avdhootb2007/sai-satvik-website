@@ -61,12 +61,12 @@ export default function AboutSection() {
           {/* Right Column: About Content */}
           <div style={{ gridColumn: 'span 12' }} className="about-text-col">
             
-            <span className="section-subtitle">
+            <span className="section-subtitle glass-badge">
               <Heart size={16} />
               <span>{t('about')}</span>
             </span>
 
-            <h2 className="section-title" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+            <h2 className="section-title animate-text-shimmer" style={{ textAlign: 'left', marginBottom: '1rem' }}>
               {language === 'mr' 
                 ? 'साई सात्विक डेअरी उत्पादने - शुद्धतेचा ध्यास, विश्वासाचे नाते!' 
                 : 'Sai Satvik Dairy Products - Committed to Purity & Trust!'}

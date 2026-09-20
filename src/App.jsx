@@ -16,6 +16,7 @@ import HotelResortPortal from './components/HotelResortPortal';
 import DairyManagerPortal from './components/DairyManagerPortal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { ProductProvider } from './context/ProductContext';
 import { PRODUCTS } from './data/products';
 import { Home } from 'lucide-react';
 
@@ -26,16 +27,13 @@ function MainAppContent() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalProduct, setModalProduct] = useState(PRODUCTS[0]);
-  const [modalSize, setModalSize] = useState(PRODUCTS[0].sizes[0]);
+  const [modalSize, setModalSize] = useState(PRODUCTS[0].sizes ? PRODUCTS[0].sizes[0] : { label: '1 Unit', price: 60 });
 
   const handleOpenOrderModal = (product = null, size = null) => {
-    if (product) {
-      setModalProduct(product);
-      setModalSize(size || product.sizes[0]);
-    } else {
-      setModalProduct(PRODUCTS[0]);
-      setModalSize(PRODUCTS[0].sizes[0]);
-    }
+    const targetProd = product || PRODUCTS[0];
+    const targetSizes = targetProd.sizes || [{ label: `1 ${targetProd.unit || 'Unit'}`, price: Number(targetProd.regular_price || 60) }];
+    setModalProduct(targetProd);
+    setModalSize(size || targetSizes[0]);
     setIsModalOpen(true);
   };
 
@@ -52,8 +50,8 @@ function MainAppContent() {
         activeCategory={activeCategory} 
       />
 
-      {/* Global Interface Switcher Bar when a portal is active */}
-      {activePortal !== 'none' && (
+      {/* Global Interface Switcher Bar when Hotel portal is active */}
+      {activePortal === 'hotel_resort' && (
         <div style={{
           backgroundColor: 'var(--color-primary-dark)',
           color: '#EBF5EE',
@@ -64,8 +62,7 @@ function MainAppContent() {
           borderBottom: '2px solid var(--color-gold)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.88rem' }}>
-            {activePortal === 'hotel_resort' && <span>{t('hotelPortal')} ({t('activeView')})</span>}
-            {activePortal === 'dairy_manager' && <span>{t('dairyManager')} ({t('activeView')})</span>}
+            <span>{t('hotelPortal')} ({t('activeView')})</span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -90,6 +87,7 @@ function MainAppContent() {
           </div>
         </div>
       )}
+
 
       {/* RENDER VIEW BASED ON ACTIVE PORTAL */}
       {activePortal === 'hotel_resort' ? (
@@ -149,8 +147,11 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <MainAppContent />
+        <ProductProvider>
+          <MainAppContent />
+        </ProductProvider>
       </AuthProvider>
     </LanguageProvider>
   );
 }
+

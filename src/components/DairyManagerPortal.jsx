@@ -11,21 +11,34 @@ import {
   MessageCircle,
   Milk,
   User,
-  MapPin
+  MapPin,
+  Menu,
+  X,
+  Globe,
+  Home,
+  LogOut,
+  Sliders,
+  Users,
+  Package,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useProducts } from '../context/ProductContext';
 import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, getStoredDemoProducts, saveStoredDemoProducts } from '../lib/supabase';
 
 export default function DairyManagerPortal() {
-  const { user } = useAuth();
-  const { language, t } = useLanguage();
+  const { user, setActivePortal, logout } = useAuth();
+  const { language, toggleLanguage, t } = useLanguage();
+  const { products: contextProducts, updateProduct } = useProducts();
 
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+
+  const products = contextProducts;
 
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [editingProdData, setEditingProdData] = useState({
@@ -51,24 +64,61 @@ export default function DairyManagerPortal() {
           .select('*, order_items(*)')
           .order('created_at', { ascending: false });
         if (ords) setOrders(ords);
-
-        const { data: prods } = await supabase.from('products').select('*');
-        if (prods) setProducts(prods);
       } catch (err) {
         console.error("Supabase manager load error:", err);
       }
     } else {
       setOrders(getStoredDemoOrders());
-      setProducts(getStoredDemoProducts());
     }
   };
 
+  const handleSendClientNotification = (order, customStatus = null) => {
+    const status = customStatus || order.status;
+    const businessName = order.business_name || 'ग्राहक';
+    const orderNo = order.order_number || order.id;
+    const totalAmount = order.total_amount || 0;
+    const phone = (order.phone || '').replace(/\D/g, '');
+    const cleanPhone = phone.length === 10 ? '91' + phone : phone;
+
+    let statusText = 'अपडेट';
+    let statusEng = 'Updated';
+
+    if (status === 'confirmed') {
+      statusText = 'स्वीकृत (Confirmed)';
+      statusEng = 'Confirmed';
+    } else if (status === 'out_for_delivery' || status === 'dispatched') {
+      statusText = 'डिलिव्हरीसाठी रवाना (Out for Delivery)';
+      statusEng = 'Out for Delivery';
+    } else if (status === 'delivered') {
+      statusText = 'यशस्वीरित्या पोहोचवले (Delivered)';
+      statusEng = 'Delivered';
+    } else if (status === 'cancelled') {
+      statusText = 'रद्द (Cancelled)';
+      statusEng = 'Cancelled';
+    } else if (status === 'pending') {
+      statusText = 'प्रलंबित (Pending Review)';
+      statusEng = 'Pending Review';
+    }
+
+    const message = language === 'mr'
+      ? `नमस्कार ${businessName}!\n\nसाई सात्विक डेअरी कडून तुमची ऑर्डर ${orderNo} ची स्थिती:\n\nऑर्डर स्थिती: ${statusText}\nएकूण रक्कम: ₹${totalAmount}\nपत्ता: ${order.delivery_address || 'नोंदणीकृत पत्ता'}\n\nकाही अडचण असल्यास संपर्क साधा: ९८२२१२३४५६.\nधन्यवाद!\nसाई सात्विक डेअरी, निफाड.`
+      : `Hello ${businessName}!\n\nUpdate regarding your order ${orderNo} from Sai Satvik Dairy:\n\nStatus: ${statusEng}\nTotal Amount: ₹${totalAmount}\nDelivery Address: ${order.delivery_address || 'Registered Address'}\n\nFor assistance, contact: 9822123456.\nThank you!\nSai Satvik Dairy, Niphad.`;
+
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+  };
+
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+
     if (isSupabaseConfigured && supabase) {
       try {
         await supabase
           .from('orders')
-          .update({ status: newStatus })
+          .update({ 
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', orderId);
       } catch (err) {
         console.error("Supabase status update error:", err);
@@ -80,28 +130,25 @@ export default function DairyManagerPortal() {
     if (!isSupabaseConfigured) {
       saveStoredDemoOrders(updated);
     }
+
+    if (targetOrder && targetOrder.phone) {
+      const confirmSend = window.confirm(
+        language === 'mr'
+          ? `ऑर्डर स्टेटस ${newStatus.toUpperCase()} अपडेट झाले आहे!\n\nग्राहकाच्या नोंदणीकृत मोबाईल नंबर (${targetOrder.phone}) वर मेसेज पाठवायचा का?`
+          : `Order status updated to ${newStatus.toUpperCase()}!\n\nSend notification message to client phone (${targetOrder.phone})?`
+      );
+
+      if (confirmSend) {
+        handleSendClientNotification(targetOrder, newStatus);
+      }
+    }
   };
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     if (!editingProdData.name || !editingProdData.b2b_price) return;
 
-    let updatedProducts;
-    if (editingProdData.id) {
-      updatedProducts = products.map(p => p.id === editingProdData.id ? { ...editingProdData } : p);
-    } else {
-      const newProd = {
-        ...editingProdData,
-        id: 'prod-' + Date.now(),
-        image: '/images/milk.png'
-      };
-      updatedProducts = [newProd, ...products];
-    }
-
-    setProducts(updatedProducts);
-    if (!isSupabaseConfigured) {
-      saveStoredDemoProducts(updatedProducts);
-    }
+    await updateProduct(editingProdData);
 
     setIsEditingProduct(false);
     alert(language === 'mr' ? "उत्पादन माहिती अपडेट केली गेली!" : "Product updated successfully!");
@@ -134,11 +181,617 @@ export default function DairyManagerPortal() {
     return matchesStatus && matchesSearch;
   });
 
+  const scrollToDemandWidget = () => {
+    const el = document.getElementById('daily-demand-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div style={{ backgroundColor: '#FAF8F3', minHeight: '100vh', padding: '2rem 1rem' }}>
-      <div className="container" style={{ maxWidth: '1150px', margin: '0 auto' }}>
+    <div style={{ backgroundColor: '#FAF8F3', minHeight: '100vh', paddingBottom: '3rem' }}>
+      
+      {/* CLEAN TOP MANAGER NAVIGATION BAR WITH 3-LINE MENU SYMBOL */}
+      <header style={{
+        backgroundColor: '#06381D',
+        backgroundImage: 'linear-gradient(135deg, #06381D 0%, #0F5A31 50%, #147A43 100%)',
+        color: '#FFFFFF',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        borderBottom: '3px solid var(--color-gold)'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0.7rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem'
+        }}>
+          
+          {/* LEFT: 3-LINE HAMBURGER MENU BUTTON & BRAND TITLE */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+            {/* THREE LINE HAMBURGER BUTTON */}
+            <button
+              onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+              style={{
+                backgroundColor: isNavMenuOpen ? 'var(--color-gold)' : 'rgba(255, 255, 255, 0.15)',
+                color: isNavMenuOpen ? 'var(--color-primary-dark)' : '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                padding: '0.5rem 0.85rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                transition: 'all 0.2s ease'
+              }}
+              title={language === 'mr' ? 'नेव्हिगेशन मेनू उघडा' : 'Open Navigation Menu'}
+              aria-label="Toggle Manager Navigation Menu"
+            >
+              {isNavMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {language === 'mr' ? 'मेनू' : 'Menu'}
+              </span>
+              {pendingCount > 0 && (
+                <span style={{
+                  backgroundColor: '#EF4444',
+                  color: '#FFF',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginLeft: '2px'
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+
+            {/* BRAND TITLE & BADGE */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{
+                backgroundColor: 'var(--color-gold)',
+                color: 'var(--color-primary-dark)',
+                padding: '0.35rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Milk size={20} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <h1 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#FFFFFF', whiteSpace: 'nowrap' }}>
+                    {language === 'mr' ? 'साई सात्विक मॅनेजर डॅशबोर्ड' : 'Sai Satvik Manager Dashboard'}
+                  </h1>
+                  <span style={{
+                    backgroundColor: 'rgba(212, 175, 55, 0.25)',
+                    color: 'var(--color-gold)',
+                    border: '1px solid var(--color-gold)',
+                    fontSize: '0.65rem',
+                    fontWeight: 900,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase'
+                  }}>
+                    ADMIN
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: ESSENTIAL CONTROLS ONLY */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {/* Language Switcher */}
+            <button
+              onClick={toggleLanguage}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.25)',
+                padding: '0.45rem 0.75rem',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+              title="Switch Language"
+            >
+              <Globe size={15} color="var(--color-gold)" />
+              <span>{language === 'mr' ? 'Eng' : 'मराठी'}</span>
+            </button>
+
+            {/* Public Site Button */}
+            <button
+              onClick={() => setActivePortal('none')}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.25)',
+                padding: '0.45rem 0.75rem',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+              title={t('publicSite')}
+            >
+              <Home size={15} />
+              <span className="manager-btn-text">{t('publicSite')}</span>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={logout}
+              style={{
+                backgroundColor: '#EF4444',
+                color: '#FFF',
+                border: 'none',
+                padding: '0.45rem 0.75rem',
+                borderRadius: '6px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+              title={t('logout')}
+            >
+              <LogOut size={15} />
+              <span className="manager-btn-text">{t('logout')}</span>
+            </button>
+          </div>
+
+        </div>
+      </header>
+
+      {/* FULL COLLAPSIBLE NAVIGATION DRAWER / OVERLAY WHEN 3-LINE MENU SYMBOL IS CLICKED */}
+      {isNavMenuOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(5, 28, 15, 0.75)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 2000,
+          display: 'flex',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          {/* SLIDE-IN NAVIGATION MENU PANEL */}
+          <div style={{
+            width: '100%',
+            maxWidth: '380px',
+            backgroundColor: '#FFFFFF',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '8px 0 25px rgba(0,0,0,0.3)',
+            animation: 'slideInLeft 0.25s ease-out',
+            overflowY: 'auto'
+          }}>
+            
+            {/* DRAWER HEADER */}
+            <div style={{
+              backgroundColor: '#06381D',
+              color: '#FFFFFF',
+              padding: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '3px solid var(--color-gold)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ backgroundColor: 'var(--color-gold)', color: '#06381D', padding: '0.4rem', borderRadius: '8px' }}>
+                  <Milk size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#FFF' }}>
+                    {language === 'mr' ? 'मॅनेजर नेव्हिगेशन मेनू' : 'Manager Navigation'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#B3CFC0' }}>
+                    {user?.email || 'Logged as Dairy Operations Manager'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsNavMenuOpen(false)}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  color: '#FFF',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* DRAWER CONTENT & ALL FUNCTIONALITY LINKS */}
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* SECTION 1: PRIMARY DASHBOARD VIEWS */}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.75rem' }}>
+                  {language === 'mr' ? '१. मुख्य व्ह्यू आणि पोर्टल्स' : '1. Core Dashboard Views'}
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Orders Management */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setFilterStatus('all');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.8rem 1rem',
+                      borderRadius: '10px',
+                      border: activeTab === 'orders' ? '2px solid var(--color-primary)' : '1px solid #E5E7EB',
+                      backgroundColor: activeTab === 'orders' ? '#EBF5EE' : '#F9FAFB',
+                      color: activeTab === 'orders' ? 'var(--color-primary-dark)' : '#374151',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <Package size={18} color="var(--color-primary)" />
+                      <span>{t('ordersManagementTab')}</span>
+                    </div>
+                    <span style={{ backgroundColor: 'var(--color-primary)', color: '#FFF', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
+                      {orders.length}
+                    </span>
+                  </button>
+
+                  {/* Daily Demand Summary */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setIsNavMenuOpen(false);
+                      setTimeout(scrollToDemandWidget, 100);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.8rem 1rem',
+                      borderRadius: '10px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#F9FAFB',
+                      color: '#374151',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <Milk size={18} color="var(--color-gold)" />
+                      <span>{t('dailyDemandTitle')}</span>
+                    </div>
+                    <ChevronRight size={16} color="#9CA3AF" />
+                  </button>
+
+                  {/* Inventory & Rates */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('inventory');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.8rem 1rem',
+                      borderRadius: '10px',
+                      border: activeTab === 'inventory' ? '2px solid var(--color-primary)' : '1px solid #E5E7EB',
+                      backgroundColor: activeTab === 'inventory' ? '#EBF5EE' : '#F9FAFB',
+                      color: activeTab === 'inventory' ? 'var(--color-primary-dark)' : '#374151',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <ShoppingBag size={18} color="var(--color-primary)" />
+                      <span>{t('productsRatesTab')}</span>
+                    </div>
+                    <span style={{ backgroundColor: '#D1D5DB', color: '#1F2937', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
+                      {products.length} Items
+                    </span>
+                  </button>
+
+                  {/* Clients Directory */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('customers');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.8rem 1rem',
+                      borderRadius: '10px',
+                      border: activeTab === 'customers' ? '2px solid var(--color-primary)' : '1px solid #E5E7EB',
+                      backgroundColor: activeTab === 'customers' ? '#EBF5EE' : '#F9FAFB',
+                      color: activeTab === 'customers' ? 'var(--color-primary-dark)' : '#374151',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <Users size={18} color="var(--color-primary)" />
+                      <span>{t('clientsDirectoryTab')}</span>
+                    </div>
+                    <ChevronRight size={16} color="#9CA3AF" />
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 2: QUICK ACTIONS & ORDER FILTERS */}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.75rem' }}>
+                  {language === 'mr' ? '२. कार्यपद्धती आणि फिल्टर' : '2. Quick Actions & Order Filters'}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Add New Product */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('inventory');
+                      setEditingProdData({ id: '', name: '', english_name: '', category: 'milk', regular_price: 60, b2b_price: 52, unit: 'Liter', in_stock: true });
+                      setIsEditingProduct(true);
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-gold)',
+                      backgroundColor: '#FFFBEB',
+                      color: '#92400E',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Plus size={18} color="var(--color-gold)" />
+                    <span>{t('addProduct')}</span>
+                  </button>
+
+                  {/* Filter Pending Orders */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setFilterStatus('pending');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#FEF2F2',
+                      color: '#991B1B',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Clock size={16} />
+                      <span>{language === 'mr' ? 'पेंडिंग ऑर्डर्स पहा' : 'View Pending Orders'}</span>
+                    </div>
+                    <span style={{ backgroundColor: '#EF4444', color: '#FFF', padding: '1px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 900 }}>
+                      {pendingCount}
+                    </span>
+                  </button>
+
+                  {/* Filter Dispatched Orders */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setFilterStatus('out_for_delivery');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#EFF6FF',
+                      color: '#1E40AF',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Truck size={16} />
+                    <span>{language === 'mr' ? 'डिलिव्हरी चालू ऑर्डर्स' : 'Out for Delivery Orders'}</span>
+                  </button>
+
+                  {/* Filter Delivered Orders */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setFilterStatus('delivered');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.7rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#ECFDF5',
+                      color: '#065F46',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>{language === 'mr' ? 'पूर्ण झालेल्या ऑर्डर्स' : 'Completed Delivered Orders'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 3: SYSTEM & ACCOUNT CONTROLS */}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.75rem' }}>
+                  {language === 'mr' ? '३. सिस्टीम आणि खाते नियंत्रण' : '3. System & Account Settings'}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Language Switch */}
+                  <button
+                    onClick={() => {
+                      toggleLanguage();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#F9FAFB',
+                      color: '#374151',
+                      fontWeight: 700,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Globe size={18} color="var(--color-primary)" />
+                      <span>{language === 'mr' ? 'भाषा बदला' : 'Switch Language'}</span>
+                    </div>
+                    <span style={{ fontWeight: 800, color: 'var(--color-primary-dark)' }}>
+                      {language === 'mr' ? 'English' : 'मराठी'}
+                    </span>
+                  </button>
+
+                  {/* Public Site */}
+                  <button
+                    onClick={() => {
+                      setActivePortal('none');
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#F9FAFB',
+                      color: '#374151',
+                      fontWeight: 700,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Home size={18} color="var(--color-primary)" />
+                    <span>{t('publicSite')}</span>
+                  </button>
+
+                  {/* Logout */}
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsNavMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: '1px solid #FCA5A5',
+                      backgroundColor: '#FEF2F2',
+                      color: '#DC2626',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <LogOut size={18} />
+                    <span>{t('logout')}</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* DRAWER FOOTER */}
+            <div style={{
+              marginTop: 'auto',
+              padding: '1rem',
+              backgroundColor: '#F3F4F6',
+              borderTop: '1px solid #E5E7EB',
+              textAlign: 'center',
+              fontSize: '0.75rem',
+              color: '#6B7280'
+            }}>
+              Sai Satvik Dairy Operations Manager v2.5
+            </div>
+
+          </div>
+
+          {/* BACKDROP CLICK CLOSES DRAWER */}
+          <div
+            onClick={() => setIsNavMenuOpen(false)}
+            style={{ flex: 1, cursor: 'pointer' }}
+          />
+        </div>
+      )}
+
+      {/* DASHBOARD CONTENT BODY */}
+      <div className="container" style={{ maxWidth: '1150px', margin: '1.5rem auto 0 auto', padding: '0 1rem' }}>
         
-        {/* Manager Header Banner (No Emojis) */}
+        {/* Manager Header Banner */}
         <div style={{
           backgroundColor: 'var(--color-primary-dark)',
           color: '#FFFFFF',
@@ -180,7 +833,7 @@ export default function DairyManagerPortal() {
         </div>
 
         {/* Daily Demand Volume Aggregator Widget */}
-        <div style={{
+        <div id="daily-demand-section" style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '14px',
           padding: '1.25rem',
@@ -211,7 +864,7 @@ export default function DairyManagerPortal() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Sub-Navigation Tabs */}
         <div style={{
           display: 'flex',
           gap: '0.5rem',
@@ -249,7 +902,7 @@ export default function DairyManagerPortal() {
             
             {/* Filter & Search Bar */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {['all', 'pending', 'confirmed', 'out_for_delivery', 'delivered'].map(st => (
                   <button
                     key={st}
@@ -305,7 +958,7 @@ export default function DairyManagerPortal() {
                           ₹{ord.total_amount}
                         </span>
                         
-                        {/* Status Update Actions (No Emojis) */}
+                        {/* Status Update Actions */}
                         <select
                           value={ord.status}
                           onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
@@ -326,6 +979,27 @@ export default function DairyManagerPortal() {
                           <option value="delivered">{t('deliveredStatus')}</option>
                           <option value="cancelled">{t('cancelledStatus')}</option>
                         </select>
+
+                        <button
+                          onClick={() => handleSendClientNotification(ord)}
+                          style={{
+                            padding: '0.4rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            border: '1px solid #25D366',
+                            backgroundColor: '#DCF8C6',
+                            color: '#075E54',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="Send WhatsApp update to client"
+                        >
+                          <MessageCircle size={14} />
+                          <span>{language === 'mr' ? 'मेसेज पाठवा' : 'Notify Client'}</span>
+                        </button>
                       </div>
                     </div>
 

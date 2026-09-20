@@ -12,7 +12,7 @@ export default function ProductCard({ product, onOrderClick }) {
   };
 
   return (
-    <div className="card-base" style={{
+    <div className="glass-card" style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100%',

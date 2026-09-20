@@ -89,6 +89,16 @@ export function AuthProvider({ children }) {
             .eq('id', data.user.id)
             .maybeSingle();
 
+          const userRole = profile?.role || data.user.user_metadata?.role;
+
+          // Reject dairy manager accounts attempting to login via Hotel B2B portal
+          if (userRole === 'dairy_manager') {
+            await supabase.auth.signOut();
+            setUser(null);
+            setActivePortal('none');
+            throw new Error('Invalid email or password.');
+          }
+
           // Create default profile if first time
           if (!profile) {
             const userMeta = data.user.user_metadata || {};
@@ -120,11 +130,11 @@ export function AuthProvider({ children }) {
           };
           setUser(loggedUser);
           setActivePortal(loggedUser.role === 'dairy_manager' ? 'dairy_manager' : 'hotel_resort');
+          setIsHotelAuthOpen(false);
         }
-        setIsHotelAuthOpen(false);
       } catch (err) {
         let msg = err.message;
-        if (msg === 'Invalid login credentials') {
+        if (msg === 'Invalid login credentials' || msg === 'Invalid email or password.') {
           msg = 'Invalid email or password. Please double check your credentials and try again.';
         }
         setAuthError(msg);
@@ -217,12 +227,22 @@ export function AuthProvider({ children }) {
             .eq('id', data.user.id)
             .maybeSingle();
 
+          const userRole = profile?.role || data.user.user_metadata?.role;
+
+          // Reject hotel or non-manager credentials attempting to login via Manager portal
+          if (userRole !== 'dairy_manager') {
+            await supabase.auth.signOut();
+            setUser(null);
+            setActivePortal('none');
+            throw new Error('Invalid email or password.');
+          }
+
           if (!profile) {
             const userMeta = data.user.user_metadata || {};
             const defaultProfile = {
               id: data.user.id,
               email: data.user.email,
-              role: userMeta.role || 'dairy_manager',
+              role: 'dairy_manager',
               business_name: userMeta.business_name || 'Sai Satvik Main Office',
               business_type: 'dairy_manager',
               contact_person: userMeta.contact_person || 'Dairy Manager',
@@ -237,7 +257,7 @@ export function AuthProvider({ children }) {
           const loggedUser = {
             id: data.user.id,
             email: data.user.email,
-            role: profile.role || 'dairy_manager',
+            role: 'dairy_manager',
             business_name: profile.business_name || 'Dairy Manager Office',
             business_type: 'dairy_manager',
             contact_person: profile.contact_person || 'Manager',
@@ -247,11 +267,11 @@ export function AuthProvider({ children }) {
           };
           setUser(loggedUser);
           setActivePortal('dairy_manager');
+          setIsManagerAuthOpen(false);
         }
-        setIsManagerAuthOpen(false);
       } catch (err) {
         let msg = err.message;
-        if (msg === 'Invalid login credentials') {
+        if (msg === 'Invalid login credentials' || msg === 'Invalid email or password.') {
           msg = 'Invalid email or password. Please double check your credentials and try again.';
         }
         setAuthError(msg);

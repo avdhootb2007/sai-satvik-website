@@ -2,6 +2,7 @@ import React from 'react';
 import { Milk, Container, GlassWater, Box, Flame, UtensilsCrossed, Sparkles, Gift } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
 import { useLanguage } from '../context/LanguageContext';
+import HoverPopWords from './HoverPopWords';
 
 export default function CategorySection({ activeCategory, onSelectCategory }) {
   const { language, t } = useLanguage();
@@ -24,15 +25,15 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
       <div className="container">
         
         {/* Section Header */}
-        <div className="section-header">
-          <span className="section-subtitle">
+        <div className="section-header animate-text-reveal">
+          <span className="section-subtitle glass-badge hover-pop-sentence">
             <Sparkles size={16} />
             <span>{t('categories')}</span>
           </span>
-          <h2 className="section-title">
-            {language === 'mr' ? 'आमची खास सात्विक श्रेणी' : 'Our Product Categories'}
+          <h2 className="section-title animate-text-shimmer">
+            <HoverPopWords text={language === 'mr' ? 'आमची खास सात्विक श्रेणी' : 'Our Product Categories'} />
           </h2>
-          <p className="section-desc">
+          <p className="section-desc hover-pop-sentence">
             {language === 'mr' 
               ? 'ताज्या दुधापासून बनवलेली १००% शुद्ध डेअरी उत्पादने व तोंडाला पाणी आणणारी पारंपारिक मिठाई.' 
               : '100% pure fresh dairy products and delicious traditional sweets made with pure ingredients.'}
@@ -57,14 +58,14 @@ export default function CategorySection({ activeCategory, onSelectCategory }) {
                   const el = document.getElementById('products');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="card-base"
+                className="glass-card"
                 style={{
                   padding: '1.75rem 1.25rem',
                   textAlign: 'center',
                   cursor: 'pointer',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: isSelected ? 'var(--color-primary-soft)' : 'var(--color-white)',
-                  borderColor: isSelected ? 'var(--color-primary)' : 'rgba(15, 90, 49, 0.08)',
+                  backgroundColor: isSelected ? 'rgba(232, 245, 236, 0.9)' : 'rgba(255, 255, 255, 0.75)',
+                  borderColor: isSelected ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.8)',
                   boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)',
                   display: 'flex',
                   flexDirection: 'column',

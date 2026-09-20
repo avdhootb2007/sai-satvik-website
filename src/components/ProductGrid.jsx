@@ -3,6 +3,7 @@ import { Search, Sparkles, X } from 'lucide-react';
 import { PRODUCTS, CATEGORIES } from '../data/products';
 import ProductCard from './ProductCard';
 import { useLanguage } from '../context/LanguageContext';
+import HoverPopWords from './HoverPopWords';
 
 export default function ProductGrid({ activeCategory, onSelectCategory, onOrderClick }) {
   const { language, t } = useLanguage();
@@ -22,15 +23,15 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
       <div className="container">
         
         {/* Section Header */}
-        <div className="section-header">
-          <span className="section-subtitle">
+        <div className="section-header animate-text-reveal">
+          <span className="section-subtitle glass-badge hover-pop-sentence">
             <Sparkles size={16} />
             <span>{t('products')}</span>
           </span>
-          <h2 className="section-title">
-            {language === 'mr' ? 'शुद्ध व ताजे डेअरी प्रोडक्ट्स व मिठाई' : 'Pure Fresh Dairy Products & Sweets'}
+          <h2 className="section-title animate-text-shimmer">
+            <HoverPopWords text={language === 'mr' ? 'शुद्ध व ताजे डेअरी प्रोडक्ट्स व मिठाई' : 'Pure Fresh Dairy Products & Sweets'} />
           </h2>
-          <p className="section-desc">
+          <p className="section-desc hover-pop-sentence">
             {language === 'mr' 
               ? 'तुमच्या पसंतीचे उत्पादन निवडा आणि थेट WhatsApp वरून होम डिलिव्हरी किंवा स्टोअर पिकअपसाठी ऑर्डर करा.'
               : 'Select your preferred products and order directly via WhatsApp for Home Delivery or Store Pickup.'}
@@ -38,8 +39,7 @@ export default function ProductGrid({ activeCategory, onSelectCategory, onOrderC
         </div>
 
         {/* Filter Controls Bar */}
-        <div style={{
-          backgroundColor: 'var(--color-white)',
+        <div className="glass-panel" style={{
           padding: '1.25rem',
           borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-sm)',
