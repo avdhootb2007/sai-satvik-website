@@ -120,7 +120,9 @@ export function ProductProvider({ children }) {
           b2b_price: normalized.b2b_price,
           unit: normalized.unit,
           in_stock: normalized.in_stock,
-          image: normalized.image
+          image: normalized.image,
+          description: normalized.description || '',
+          tag: normalized.tag || ''
         };
         await supabase.from('products').upsert([payload]);
       } catch (err) {
@@ -129,8 +131,25 @@ export function ProductProvider({ children }) {
     }
   };
 
+  // Delete a product
+  const deleteProduct = async (id) => {
+    setProducts(prevProducts => {
+      const newList = prevProducts.filter(p => p.id !== id);
+      saveStoredDemoProducts(newList);
+      return newList;
+    });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('products').delete().eq('id', id);
+      } catch (err) {
+        console.error("Error deleting product from Supabase:", err);
+      }
+    }
+  };
+
   return (
-    <ProductContext.Provider value={{ products, loading, updateProduct }}>
+    <ProductContext.Provider value={{ products, loading, updateProduct, deleteProduct }}>
       {children}
     </ProductContext.Provider>
   );

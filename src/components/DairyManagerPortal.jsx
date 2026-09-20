@@ -20,7 +20,11 @@ import {
   Sliders,
   Users,
   Package,
-  ChevronRight
+  ChevronRight,
+  Upload,
+  Camera,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -30,7 +34,7 @@ import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrde
 export default function DairyManagerPortal() {
   const { user, setActivePortal, logout } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
-  const { products: contextProducts, updateProduct } = useProducts();
+  const { products: contextProducts, updateProduct, deleteProduct } = useProducts();
 
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -49,8 +53,67 @@ export default function DairyManagerPortal() {
     regular_price: 60,
     b2b_price: 52,
     unit: 'Liter',
-    in_stock: true
+    in_stock: true,
+    image: '/images/milk.png',
+    description: '',
+    tag: ''
   });
+
+  const PRESET_PHOTOS = [
+    { label: 'Fresh Milk', url: '/images/milk.png' },
+    { label: 'Cow Mascot', url: '/cow_mascot.jpg' },
+    { label: 'Thick Curd', url: '/images/curd.png' },
+    { label: 'Fresh Paneer', url: '/images/paneer.png' },
+    { label: 'Desi Ghee', url: '/images/ghee.png' },
+    { label: 'Shrikhand', url: '/images/shrikhand.png' },
+    { label: 'Sweets Box', url: '/images/sweets.png' }
+  ];
+
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(language === 'mr' ? 'फोटोची साईझ ५MB पेक्षा कमी असावी!' : 'Photograph size must be under 5MB!');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        setEditingProdData(prev => ({
+          ...prev,
+          image: uploadEvent.target.result
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    if (!editingProdData.name || !editingProdData.regular_price) {
+      alert(language === 'mr' ? 'कृपया उत्पादनाचे नाव व किंमत प्रविष्ट करा!' : 'Please enter product name and retail price!');
+      return;
+    }
+
+    const payload = {
+      ...editingProdData,
+      id: editingProdData.id || ('prod-' + Date.now()),
+      regular_price: Number(editingProdData.regular_price),
+      b2b_price: Number(editingProdData.b2b_price || Math.round(editingProdData.regular_price * 0.85)),
+      englishName: editingProdData.english_name || editingProdData.name
+    };
+
+    await updateProduct(payload);
+
+    setIsEditingProduct(false);
+    alert(language === 'mr' ? "उत्पादन यशस्वीरित्या सेव्ह झाले!" : "Product saved successfully!");
+  };
+
+  const handleDeleteProduct = async (id, name) => {
+    if (window.confirm(language === 'mr' ? `हटवायचे का: ${name}?` : `Delete product: ${name}?`)) {
+      await deleteProduct(id);
+      setIsEditingProduct(false);
+    }
+  };
 
   useEffect(() => {
     loadManagerData();
@@ -142,16 +205,6 @@ export default function DairyManagerPortal() {
         handleSendClientNotification(targetOrder, newStatus);
       }
     }
-  };
-
-  const handleSaveProduct = async (e) => {
-    e.preventDefault();
-    if (!editingProdData.name || !editingProdData.b2b_price) return;
-
-    await updateProduct(editingProdData);
-
-    setIsEditingProduct(false);
-    alert(language === 'mr' ? "उत्पादन माहिती अपडेट केली गेली!" : "Product updated successfully!");
   };
 
   const calculateDailyDemand = () => {
@@ -1033,120 +1086,435 @@ export default function DairyManagerPortal() {
 
               <button
                 onClick={() => {
-                  setEditingProdData({ id: '', name: '', english_name: '', category: 'milk', regular_price: 60, b2b_price: 52, unit: 'Liter', in_stock: true });
+                  setEditingProdData({
+                    id: '',
+                    name: '',
+                    english_name: '',
+                    category: 'milk',
+                    regular_price: 60,
+                    b2b_price: 52,
+                    unit: 'Liter',
+                    in_stock: true,
+                    image: '/images/milk.png',
+                    description: '',
+                    tag: ''
+                  });
                   setIsEditingProduct(true);
                 }}
-                style={{ backgroundColor: 'var(--color-primary)', color: '#FFF', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                style={{ backgroundColor: 'var(--color-primary)', color: '#FFF', padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(15,90,49,0.25)' }}
               >
-                <Plus size={16} /> {t('addProduct')}
+                <Plus size={18} /> <span>{language === 'mr' ? 'नवीन उत्पादन जोडा (Add Product)' : 'Add New Product'}</span>
               </button>
             </div>
 
-            {/* Product Edit Modal */}
+            {/* Product Edit / Add New Product Form Panel */}
             {isEditingProduct && (
-              <form onSubmit={handleSaveProduct} style={{ backgroundColor: '#F9FAFB', padding: '1.25rem', borderRadius: '10px', border: '1px solid #E5E7EB', marginBottom: '1.5rem' }}>
-                <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-dark)' }}>Product Info:</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <input
-                    type="text"
-                    placeholder="Marathi Name"
-                    value={editingProdData.name}
-                    onChange={(e) => setEditingProdData({ ...editingProdData, name: e.target.value })}
-                    required
-                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #D1D5DB' }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="English Name"
-                    value={editingProdData.english_name}
-                    onChange={(e) => setEditingProdData({ ...editingProdData, english_name: e.target.value })}
-                    required
-                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #D1D5DB' }}
-                  />
-                  <select
-                    value={editingProdData.unit}
-                    onChange={(e) => setEditingProdData({ ...editingProdData, unit: e.target.value })}
-                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #D1D5DB' }}
+              <div style={{
+                backgroundColor: '#FFFFFF',
+                padding: '1.5rem',
+                borderRadius: '14px',
+                border: '2px solid var(--color-primary)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+                marginBottom: '2rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #E5E7EB', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', padding: '0.4rem', borderRadius: '8px' }}>
+                      <Package size={22} />
+                    </div>
+                    <div>
+                      <h4 className="marathi-heading" style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
+                        {editingProdData.id ? (language === 'mr' ? 'उत्पादन माहिती अपडेट करा' : 'Edit Product Details') : (language === 'mr' ? 'नवीन उत्पादन जोडा' : 'Add New Product')}
+                      </h4>
+                      <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
+                        {language === 'mr' ? 'फोटो, किंमत व सविस्तर माहिती प्रविष्ट करा' : 'Upload photograph, set retail & B2B rates, and enter details'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProduct(false)}
+                    style={{ background: '#F3F4F6', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <option value="Liter">Liter</option>
-                    <option value="Kg">Kg</option>
-                    <option value="Pack">Pack</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>Regular Retail Price (₹):</label>
-                    <input
-                      type="number"
-                      value={editingProdData.regular_price}
-                      onChange={(e) => setEditingProdData({ ...editingProdData, regular_price: Number(e.target.value) })}
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #D1D5DB' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-primary)' }}>Hotel B2B Price (₹):</label>
-                    <input
-                      type="number"
-                      value={editingProdData.b2b_price}
-                      onChange={(e) => setEditingProdData({ ...editingProdData, b2b_price: Number(e.target.value) })}
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #D1D5DB' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '1.2rem' }}>
-                    <input
-                      type="checkbox"
-                      id="instock"
-                      checked={editingProdData.in_stock}
-                      onChange={(e) => setEditingProdData({ ...editingProdData, in_stock: e.target.checked })}
-                    />
-                    <label htmlFor="instock" style={{ fontSize: '0.85rem', fontWeight: 700 }}>In Stock</label>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="submit" style={{ backgroundColor: 'var(--color-primary)', color: '#FFF', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontWeight: 800 }}>
-                    {t('saveProduct')}
-                  </button>
-                  <button type="button" onClick={() => setIsEditingProduct(false)} style={{ backgroundColor: '#9CA3AF', color: '#FFF', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none' }}>
-                    Cancel
+                    <X size={18} />
                   </button>
                 </div>
-              </form>
+
+                <form onSubmit={handleSaveProduct}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                    
+                    {/* Left Column: Photograph Upload & Selection */}
+                    <div style={{ gridColumn: 'span 12' }} className="prod-img-col">
+                      <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#374151', marginBottom: '0.5rem', display: 'block' }}>
+                        📷 {language === 'mr' ? 'उत्पादनाचा फोटो (Product Photograph)' : 'Product Photograph'} *
+                      </label>
+                      
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start' }}>
+                        {/* Live Preview Box */}
+                        <div style={{
+                          position: 'relative',
+                          width: '180px',
+                          height: '140px',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          backgroundColor: '#F3F4F6',
+                          border: '2px dashed #D1D5DB',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          {editingProdData.image ? (
+                            <img 
+                              src={editingProdData.image} 
+                              alt="Product preview" 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            <div style={{ textAlign: 'center', color: '#9CA3AF' }}>
+                              <ImageIcon size={32} />
+                              <p style={{ fontSize: '0.75rem', margin: '0.2rem 0 0 0' }}>No Photo</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Upload Controls & Presets */}
+                        <div style={{ flex: 1, minWidth: '240px' }}>
+                          {/* Upload File Input Button */}
+                          <label style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.65rem 1.25rem',
+                            backgroundColor: 'var(--color-primary-soft)',
+                            color: 'var(--color-primary-dark)',
+                            border: '1.5px solid var(--color-primary)',
+                            borderRadius: '8px',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
+                            cursor: 'pointer',
+                            marginBottom: '0.85rem'
+                          }}>
+                            <Upload size={18} />
+                            <span>{language === 'mr' ? 'फोटो फाईल सिलेक्ट करा (Upload Photo File)' : 'Choose Photograph File'}</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleImageFileUpload} 
+                              style={{ display: 'none' }} 
+                            />
+                          </label>
+
+                          {/* Preset Photos Gallery */}
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: '0.3rem' }}>
+                              {language === 'mr' ? 'किंवा रेडी फोटो निवडा:' : 'Or Select Preset Dairy Photo:'}
+                            </span>
+                            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.3rem', flexWrap: 'wrap' }}>
+                              {PRESET_PHOTOS.map((preset, pIdx) => (
+                                <img
+                                  key={pIdx}
+                                  src={preset.url}
+                                  alt={preset.label}
+                                  onClick={() => setEditingProdData({ ...editingProdData, image: preset.url })}
+                                  style={{
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '6px',
+                                    objectFit: 'cover',
+                                    cursor: 'pointer',
+                                    border: editingProdData.image === preset.url ? '3px solid var(--color-primary)' : '1px solid #D1D5DB',
+                                    boxShadow: editingProdData.image === preset.url ? '0 0 8px rgba(15,90,49,0.4)' : 'none'
+                                  }}
+                                  title={preset.label}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Form Fields: Names & Category */}
+                    <div style={{ gridColumn: 'span 12' }}>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                        {/* Marathi Name */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'उत्पादनाचे नाव (मराठी)' : 'Product Name (Marathi)'} *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="उदा. ताजे म्हशीचे दूध"
+                            value={editingProdData.name}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, name: e.target.value })}
+                            required
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.95rem' }}
+                          />
+                        </div>
+
+                        {/* English Name */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'उत्पादनाचे नाव (English)' : 'Product Name (English)'} *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Fresh Buffalo Milk"
+                            value={editingProdData.english_name}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, english_name: e.target.value })}
+                            required
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.95rem' }}
+                          />
+                        </div>
+
+                        {/* Category */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'श्रेणी (Category)' : 'Category'} *
+                          </label>
+                          <select
+                            value={editingProdData.category}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, category: e.target.value })}
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.9rem', fontWeight: 700 }}
+                          >
+                            <option value="milk">Milk (दूध)</option>
+                            <option value="curd">Curd / Lassi (दही / लस्सी)</option>
+                            <option value="buttermilk">Buttermilk (ताक)</option>
+                            <option value="paneer">Paneer (पनीर)</option>
+                            <option value="ghee">Desi Ghee (साजूक तूप)</option>
+                            <option value="shrikhand">Shrikhand (श्रीखंड)</option>
+                            <option value="sweets">Traditional Sweets (मिठाई)</option>
+                            <option value="dairy">Other Dairy (इतर डेअरी)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                        {/* Packaging Unit */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'एकक (Unit)' : 'Packaging Unit'} *
+                          </label>
+                          <select
+                            value={editingProdData.unit}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, unit: e.target.value })}
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.9rem', fontWeight: 700 }}
+                          >
+                            <option value="Liter">Liter (लिटर)</option>
+                            <option value="Kg">Kg (किलो)</option>
+                            <option value="500g">500g (अर्धा किलो)</option>
+                            <option value="250g">250g (पाव किलो)</option>
+                            <option value="Pack">Pack (पॅक)</option>
+                            <option value="Unit">Unit (नग)</option>
+                          </select>
+                        </div>
+
+                        {/* Retail Price */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'रिटेल किंमत (Retail Rate ₹)' : 'Retail Price (₹)'} *
+                          </label>
+                          <input
+                            type="number"
+                            value={editingProdData.regular_price}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, regular_price: Number(e.target.value) })}
+                            required
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '1rem', fontWeight: 800 }}
+                          />
+                        </div>
+
+                        {/* Hotel B2B Price */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'हॉटेल B2B रेट (Hotel Rate ₹)' : 'Hotel B2B Rate (₹)'} *
+                          </label>
+                          <input
+                            type="number"
+                            value={editingProdData.b2b_price}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, b2b_price: Number(e.target.value) })}
+                            required
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid var(--color-primary)', backgroundColor: '#EBF5EE', fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}
+                          />
+                        </div>
+
+                        {/* Tag / Badge */}
+                        <div>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                            {language === 'mr' ? 'टॅग (Badge)' : 'Tag / Badge'}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 100% Pure, Best Seller"
+                            value={editingProdData.tag || ''}
+                            onChange={(e) => setEditingProdData({ ...editingProdData, tag: e.target.value })}
+                            style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.9rem' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stock Checkbox */}
+                      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <input
+                          type="checkbox"
+                          id="instock-check-modal"
+                          checked={editingProdData.in_stock}
+                          onChange={(e) => setEditingProdData({ ...editingProdData, in_stock: e.target.checked })}
+                          style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+                        />
+                        <label htmlFor="instock-check-modal" style={{ fontSize: '0.92rem', fontWeight: 800, cursor: 'pointer', color: editingProdData.in_stock ? 'var(--color-primary)' : '#DC2626' }}>
+                          {editingProdData.in_stock ? (language === 'mr' ? 'स्टॉकमध्ये उपलब्ध (In Stock)' : 'In Stock & Available') : (language === 'mr' ? 'स्टॉक संपला (Out of Stock)' : 'Out of Stock')}
+                        </label>
+                      </div>
+
+                      {/* Description */}
+                      <div style={{ marginBottom: '1.25rem' }}>
+                        <label style={{ fontSize: '0.82rem', fontWeight: 800, color: '#374151', marginBottom: '0.3rem', display: 'block' }}>
+                          {language === 'mr' ? 'उत्पादनाचे सविस्तर वर्णन (Description)' : 'Product Description'}
+                        </label>
+                        <textarea
+                          rows={3}
+                          placeholder="e.g. Fresh farm milk collected daily morning and evening from Niphad area, 100% pure, unadulterated & satvik."
+                          value={editingProdData.description || ''}
+                          onChange={(e) => setEditingProdData({ ...editingProdData, description: e.target.value })}
+                          style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '0.9rem', fontFamily: 'inherit' }}
+                        />
+                      </div>
+
+                      {/* Form Action Buttons */}
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button 
+                          type="submit" 
+                          style={{
+                            backgroundColor: 'var(--color-primary)',
+                            color: '#FFFFFF',
+                            padding: '0.75rem 1.6rem',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontWeight: 800,
+                            fontSize: '0.98rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 4px 12px rgba(15,90,49,0.3)'
+                          }}
+                        >
+                          <CheckCircle2 size={18} />
+                          <span>{editingProdData.id ? (language === 'mr' ? 'उत्पादन सेव्ह करा' : 'Save Product Updates') : (language === 'mr' ? 'उत्पादन जोडा' : 'Add New Product')}</span>
+                        </button>
+
+                        <button 
+                          type="button" 
+                          onClick={() => setIsEditingProduct(false)} 
+                          style={{
+                            backgroundColor: '#9CA3AF',
+                            color: '#FFFFFF',
+                            padding: '0.75rem 1.4rem',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.95rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {language === 'mr' ? 'रद्द करा' : 'Cancel'}
+                        </button>
+
+                        {editingProdData.id && (
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteProduct(editingProdData.id, editingProdData.name)}
+                            style={{
+                              backgroundColor: '#FEF2F2',
+                              color: '#DC2626',
+                              border: '1px solid #FCA5A5',
+                              padding: '0.75rem 1.2rem',
+                              borderRadius: '8px',
+                              fontWeight: 800,
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              marginLeft: 'auto',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                            <span>{language === 'mr' ? 'उत्पादन हटवा' : 'Delete Product'}</span>
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+
+                  </div>
+                </form>
+              </div>
             )}
 
+            {/* Products Table with Photographs */}
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '2px solid #E5E7EB', textAlign: 'left' }}>
-                    <th style={{ padding: '0.75rem' }}>Product</th>
+                    <th style={{ padding: '0.75rem' }}>Photo</th>
+                    <th style={{ padding: '0.75rem' }}>Product Name</th>
                     <th style={{ padding: '0.75rem' }}>Unit</th>
                     <th style={{ padding: '0.75rem' }}>Retail Price</th>
                     <th style={{ padding: '0.75rem' }}>B2B Rate</th>
-                    <th style={{ padding: '0.75rem' }}>Stock Status</th>
+                    <th style={{ padding: '0.75rem' }}>Stock</th>
                     <th style={{ padding: '0.75rem' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.map(p => (
                     <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>{language === 'mr' ? p.name : p.english_name}</td>
+                      <td style={{ padding: '0.5rem 0.75rem' }}>
+                        <img 
+                          src={p.image || '/images/milk.png'} 
+                          alt={p.name} 
+                          style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #E5E7EB' }} 
+                        />
+                      </td>
+                      <td style={{ padding: '0.75rem', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
+                        <div>{language === 'mr' ? p.name : (p.english_name || p.englishName || p.name)}</div>
+                        {p.tag && <span style={{ fontSize: '0.7rem', backgroundColor: '#EBF5EE', color: 'var(--color-primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>{p.tag}</span>}
+                      </td>
                       <td style={{ padding: '0.75rem' }}>{p.unit}</td>
-                      <td style={{ padding: '0.75rem', color: '#9CA3AF', textDecoration: 'line-through' }}>₹{p.regular_price}</td>
+                      <td style={{ padding: '0.75rem', color: '#6B7280' }}>₹{p.regular_price}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 800, color: 'var(--color-primary)' }}>₹{p.b2b_price}</td>
-                      <td style={{ padding: '0.75rem' }}>{p.in_stock ? 'In Stock' : 'Out of Stock'}</td>
                       <td style={{ padding: '0.75rem' }}>
-                        <button
-                          onClick={() => {
-                            setEditingProdData(p);
-                            setIsEditingProduct(true);
-                          }}
-                          style={{ padding: '4px 8px', backgroundColor: '#EBF5EE', border: '1px solid var(--color-primary)', color: 'var(--color-primary-dark)', borderRadius: '4px', cursor: 'pointer', fontWeight: 700 }}
-                        >
-                          {t('editProduct')}
-                        </button>
+                        <span style={{ color: p.in_stock ? '#059669' : '#DC2626', fontWeight: 700, fontSize: '0.8rem' }}>
+                          {p.in_stock ? 'In Stock' : 'Out of Stock'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={() => {
+                              setEditingProdData({
+                                ...p,
+                                english_name: p.english_name || p.englishName || p.name
+                              });
+                              setIsEditingProduct(true);
+                            }}
+                            style={{ padding: '4px 10px', backgroundColor: '#EBF5EE', border: '1px solid var(--color-primary)', color: 'var(--color-primary-dark)', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteProduct(p.id, p.name)}
+                            style={{ padding: '4px 8px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
+                            title="Delete product"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
