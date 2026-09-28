@@ -91,3 +91,115 @@ export const getStoredDemoProducts = () => {
 export const saveStoredDemoProducts = (products) => {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 };
+
+export const fetchOrdersFromSupabase = async () => {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: ords, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching orders from Supabase:", error);
+        return getStoredDemoOrders();
+      }
+
+      if (ords && ords.length > 0) {
+        const normalized = ords.map(o => ({
+          ...o,
+          items: (Array.isArray(o.items) && o.items.length > 0) 
+            ? o.items 
+            : (Array.isArray(o.order_items) && o.order_items.length > 0)
+              ? o.order_items.map(it => ({
+                  product_name: it.product_name,
+                  quantity: Number(it.quantity),
+                  unit: it.unit,
+                  price_per_unit: Number(it.price_per_unit),
+                  total_price: Number(it.total_price)
+                }))
+              : []
+        }));
+        saveStoredDemoOrders(normalized);
+        return normalized;
+      }
+    } catch (err) {
+      console.error("Supabase fetch exception:", err);
+    }
+  }
+  return getStoredDemoOrders();
+};
+
+export const saveOrderToSupabase = async (newOrder) => {
+  // Save to local storage for local cache
+  const currentOrders = getStoredDemoOrders();
+  const updatedOrders = [newOrder, ...currentOrders.filter(o => o.id !== newOrder.id)];
+  saveStoredDemoOrders(updatedOrders);
+
+  window.dispatchEvent(new CustomEvent('sai_satvik_orders_updated', { detail: newOrder }));
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: insertedOrder, error: orderErr } = await supabase
+        .from('orders')
+        .insert([{
+          order_number: newOrder.order_number,
+          user_id: newOrder.user_id,
+          business_name: newOrder.business_name,
+          contact_person: newOrder.contact_person,
+          phone: newOrder.phone,
+          delivery_address: newOrder.delivery_address,
+          delivery_date: newOrder.delivery_date,
+          total_amount: newOrder.total_amount,
+          status: newOrder.status || 'pending',
+          notes: newOrder.notes || '',
+          receiver_name: newOrder.receiver_name || newOrder.contact_person || '',
+          otp_code: newOrder.otp_code || '',
+          items: newOrder.items || []
+        }])
+        .select()
+        .single();
+
+      if (orderErr) {
+        console.error("Error inserting order into Supabase:", orderErr);
+        return false;
+      }
+
+      if (insertedOrder && newOrder.items && newOrder.items.length > 0) {
+        const itemPayloads = newOrder.items.map(item => ({
+          order_id: insertedOrder.id,
+          product_id: item.product_id || null,
+          product_name: item.product_name,
+          unit: item.unit,
+          price_per_unit: item.price_per_unit,
+          quantity: item.quantity,
+          total_price: item.total_price
+        }));
+        await supabase.from('order_items').insert(itemPayloads);
+      }
+      return true;
+    } catch (err) {
+      console.error("Exception saving order to Supabase:", err);
+    }
+  }
+  return false;
+};
+
+export const updateOrderStatusInSupabase = async (orderId, newStatus) => {
+  const currentOrders = getStoredDemoOrders();
+  const updated = currentOrders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+  saveStoredDemoOrders(updated);
+
+  window.dispatchEvent(new CustomEvent('sai_satvik_orders_updated', { detail: { orderId, newStatus } }));
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+    } catch (err) {
+      console.error("Error updating order status in Supabase:", err);
+    }
+  }
+};

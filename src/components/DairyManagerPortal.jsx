@@ -24,12 +24,14 @@ import {
   Upload,
   Camera,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Printer,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useProducts } from '../context/ProductContext';
-import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, getStoredDemoProducts, saveStoredDemoProducts } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, fetchOrdersFromSupabase, updateOrderStatusInSupabase, getStoredDemoProducts, saveStoredDemoProducts } from '../lib/supabase';
 
 export default function DairyManagerPortal() {
   const { user, setActivePortal, logout } = useAuth();
@@ -41,6 +43,7 @@ export default function DairyManagerPortal() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
 
   const products = contextProducts;
 
@@ -117,22 +120,40 @@ export default function DairyManagerPortal() {
 
   useEffect(() => {
     loadManagerData();
+
+    const handleSync = () => {
+      loadManagerData();
+    };
+
+    window.addEventListener('sai_satvik_orders_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    let channel = null;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        channel = supabase
+          .channel('public:orders:manager')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            loadManagerData();
+          })
+          .subscribe();
+      } catch (err) {
+        console.error("Manager real-time sync error:", err);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('sai_satvik_orders_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   const loadManagerData = async () => {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data: ords } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .order('created_at', { ascending: false });
-        if (ords) setOrders(ords);
-      } catch (err) {
-        console.error("Supabase manager load error:", err);
-      }
-    } else {
-      setOrders(getStoredDemoOrders());
-    }
+    const ords = await fetchOrdersFromSupabase();
+    setOrders(ords);
   };
 
   const handleSendClientNotification = (order, customStatus = null) => {
@@ -173,26 +194,9 @@ export default function DairyManagerPortal() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     const targetOrder = orders.find(o => o.id === orderId);
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase
-          .from('orders')
-          .update({ 
-            status: newStatus,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', orderId);
-      } catch (err) {
-        console.error("Supabase status update error:", err);
-      }
-    }
-
+    await updateOrderStatusInSupabase(orderId, newStatus);
     const updated = orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
     setOrders(updated);
-    if (!isSupabaseConfigured) {
-      saveStoredDemoOrders(updated);
-    }
 
     if (targetOrder && targetOrder.phone) {
       const confirmSend = window.confirm(
@@ -1033,6 +1037,28 @@ export default function DairyManagerPortal() {
                           <option value="cancelled">{t('cancelledStatus')}</option>
                         </select>
 
+                        {ord.status === 'delivered' && (
+                          <button
+                            onClick={() => setSelectedReceiptOrder(ord)}
+                            style={{
+                              padding: '0.4rem 0.65rem',
+                              borderRadius: '6px',
+                              fontWeight: 800,
+                              fontSize: '0.8rem',
+                              border: '1.5px solid var(--color-primary)',
+                              backgroundColor: 'var(--color-primary-soft)',
+                              color: 'var(--color-primary-dark)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <FileText size={14} />
+                            <span>{language === 'mr' ? 'पावती पहा' : 'View Receipt'}</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={() => handleSendClientNotification(ord)}
                           style={{
@@ -1572,6 +1598,184 @@ export default function DairyManagerPortal() {
         )}
 
       </div>
+
+      {/* DIGITAL RECEIPT MODAL FOR MANAGER */}
+      {selectedReceiptOrder && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            maxWidth: '650px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            border: '2px solid var(--color-gold)',
+            position: 'relative'
+          }}>
+            <div style={{ position: 'absolute', right: '1rem', top: '1rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+              <button
+                onClick={() => window.print()}
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '6px',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Printer size={15} />
+                <span>{language === 'mr' ? 'प्रिंट करा' : 'Print'}</span>
+              </button>
+              <button
+                onClick={() => setSelectedReceiptOrder(null)}
+                style={{
+                  backgroundColor: '#F3F4F6',
+                  color: '#374151',
+                  border: '1px solid #D1D5DB',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '2rem' }}>
+              <div style={{ borderBottom: '2px solid var(--color-primary)', paddingBottom: '1rem', marginBottom: '1.25rem', textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <div style={{ backgroundColor: 'var(--color-gold)', color: '#06381D', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+                    <Milk size={26} />
+                  </div>
+                  <h2 className="marathi-heading" style={{ margin: 0, fontSize: '1.45rem', fontWeight: 900, color: 'var(--color-primary-dark)' }}>
+                    साई सात्विक डेअरी प्रॉडक्ट्स (SAI SATVIK DAIRY)
+                  </h2>
+                </div>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: '#4B5563', fontWeight: 700 }}>
+                  १००% शुद्ध ताजे दूध व डेअरी उत्पादने | निफाड, नाशिक, महाराष्ट्र - ४२२३०३
+                </p>
+                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '4px', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <span>GSTIN: 27AABCS1234F1Z5</span>
+                  <span>FSSAI Lic: 11521020000123</span>
+                  <span>संपर्क: ९८२२१२३४५६</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#F9FAFB', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.88rem', marginBottom: '1.25rem', border: '1px solid #E5E7EB', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ color: '#6B7280', fontSize: '0.78rem' }}>{language === 'mr' ? 'पावती क्रमांक / Invoice No:' : 'Receipt Invoice No:'}</div>
+                  <strong style={{ color: 'var(--color-primary-dark)', fontSize: '1rem' }}>REC-{selectedReceiptOrder.order_number}</strong>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#6B7280', fontSize: '0.78rem' }}>{language === 'mr' ? 'तारीख व वेळ / Date:' : 'Date & Time:'}</div>
+                  <strong>{new Date(selectedReceiptOrder.created_at).toLocaleDateString(language === 'mr' ? 'mr-IN' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
+                <div style={{ backgroundColor: '#F3F4F6', padding: '0.85rem', borderRadius: '8px' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--color-primary-dark)', marginBottom: '4px', fontSize: '0.88rem' }}>
+                    🏢 {language === 'mr' ? 'हॉटेल / ग्राहक माहिती:' : 'Client Business Details:'}
+                  </div>
+                  <div><strong>{selectedReceiptOrder.business_name}</strong></div>
+                  <div style={{ color: '#4B5563' }}>संपर्क: {selectedReceiptOrder.contact_person} ({selectedReceiptOrder.phone})</div>
+                </div>
+
+                <div style={{ backgroundColor: '#F3F4F6', padding: '0.85rem', borderRadius: '8px' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--color-primary-dark)', marginBottom: '4px', fontSize: '0.88rem' }}>
+                    👤 {language === 'mr' ? 'प्राप्तकर्ता व डिलिव्हरी पत्ता:' : 'Receiver & Delivery Location:'}
+                  </div>
+                  <div><strong>{selectedReceiptOrder.receiver_name || selectedReceiptOrder.contact_person}</strong></div>
+                  <div style={{ color: '#4B5563' }}>{selectedReceiptOrder.delivery_address}</div>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#D1FAE5', border: '1px solid #10B981', color: '#065F46', padding: '0.65rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800, marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={18} />
+                  <span>{language === 'mr' ? 'डिलिव्हरी स्थिती: पूर्ण (Delivery Completed)' : 'Delivery Status: Completed'}</span>
+                </div>
+                <span style={{ backgroundColor: '#FFF', color: '#065F46', padding: '2px 8px', borderRadius: '6px', border: '1px solid #10B981' }}>
+                  ✔ Official Receipt
+                </span>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'var(--color-primary-dark)', color: '#FFF', textAlign: 'left' }}>
+                      <th style={{ padding: '0.6rem 0.75rem', borderRadius: '6px 0 0 0' }}>#</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>उत्पादन (Item Name)</th>
+                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>प्रमाण (Qty)</th>
+                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>दर (B2B Price)</th>
+                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right', borderRadius: '0 6px 0 0' }}>एकूण (Total)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedReceiptOrder.items && selectedReceiptOrder.items.map((it, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                        <td style={{ padding: '0.6rem 0.75rem', color: '#6B7280' }}>{idx + 1}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: '#111827' }}>{it.product_name}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 700 }}>{it.quantity} {it.unit}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>₹{it.price_per_unit}</td>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontWeight: 800 }}>₹{it.total_price}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.25rem' }}>
+                <div style={{ width: '240px', backgroundColor: '#F9FAFB', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #E5E7EB', fontSize: '0.88rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4B5563', marginBottom: '4px' }}>
+                    <span>Subtotal:</span>
+                    <span>₹{selectedReceiptOrder.total_amount}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', fontWeight: 700, marginBottom: '6px' }}>
+                    <span>Delivery Fee:</span>
+                    <span>FREE</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: 900, color: 'var(--color-primary-dark)', borderTop: '2px solid #D1D5DB', paddingTop: '6px' }}>
+                    <span>Grand Total:</span>
+                    <span>₹{selectedReceiptOrder.total_amount}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px dashed #D1D5DB', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.78rem', color: '#6B7280' }}>
+                <div>
+                  <div>✔ अधिकृत डिजिटल कॉम्प्युटर जनरेटेड पावती</div>
+                  <div>साई सात्विक डेअरी प्रॉडक्ट्स, निफाड</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ borderBottom: '1px solid #9CA3AF', width: '140px', marginBottom: '4px' }}></div>
+                  <strong style={{ color: 'var(--color-primary-dark)' }}>अधिकृत स्वाक्षरी (Manager Sign)</strong>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
