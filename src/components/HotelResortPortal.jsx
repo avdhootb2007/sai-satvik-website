@@ -82,7 +82,7 @@ export default function HotelResortPortal() {
   const fetchProductsAndOrders = async () => {
     const allOrders = await fetchOrdersFromSupabase();
     if (user?.id) {
-      const userOrders = allOrders.filter(o => o.user_id === user.id || o.user_id === 'user-hotel-1' || o.user_id === 'hotel-001' || o.user_id === 'hotel-demo');
+      const userOrders = allOrders.filter(o => o.user_id === user.id || o.business_name === user.business_name || (user.email && o.email === user.email));
       setOrders(userOrders.length > 0 ? userOrders : allOrders);
     } else {
       setOrders(allOrders);
@@ -139,11 +139,11 @@ export default function HotelResortPortal() {
     const newOrder = {
       id: 'ord-' + Date.now(),
       order_number: orderNumber,
-      user_id: user?.id || 'hotel-demo',
-      business_name: user?.business_name || (language === 'mr' ? 'हॉटेल साई पॅलेस' : 'Hotel Sai Palace'),
-      contact_person: user?.contact_person || (language === 'mr' ? 'व्यवस्थापक' : 'Manager'),
-      phone: user?.phone || '9876543210',
-      delivery_address: user?.address || 'Niphad, Nashik',
+      user_id: user?.id || ('hotel-' + Date.now()),
+      business_name: user?.business_name || 'B2B Client Hotel',
+      contact_person: user?.contact_person || '',
+      phone: user?.phone || '',
+      delivery_address: user?.address || '',
       delivery_date: deliveryDate,
       total_amount: calculateTotal(),
       status: 'pending',
@@ -210,21 +210,33 @@ export default function HotelResortPortal() {
           borderLeft: '6px solid var(--color-gold)'
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.3rem' }}>
-              <span style={{ backgroundColor: 'var(--color-gold)', color: 'var(--color-primary-dark)', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
-                B2B Verified Client
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+              {(user?.is_permitted || user?.status === 'permitted' || user?.status === 'approved') ? (
+                <span style={{ backgroundColor: '#10B981', color: '#FFFFFF', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                  ✔ B2B Verified & Permitted Client
+                </span>
+              ) : (
+                <span style={{ backgroundColor: '#F59E0B', color: '#78350F', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                  ⏳ Pending Manager Approval
+                </span>
+              )}
               {user?.gst_number && (
                 <span style={{ fontSize: '0.75rem', color: '#D2E3D8' }}>GST: {user.gst_number}</span>
               )}
             </div>
             <h2 className="marathi-heading" style={{ fontSize: '1.8rem', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-              {user?.business_name || t('clientTitle')}
+              {user?.business_name || (language === 'mr' ? 'हॉटेल व रिसॉर्ट B2B ग्राहक' : 'Hotel B2B Client')}
             </h2>
             <div style={{ fontSize: '0.9rem', color: '#B3CFC0', marginTop: '0.3rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {user?.contact_person || 'Manager'}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={14} /> {user?.phone || '9604988662'}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {user?.address || 'Niphad, Nashik'}</span>
+              {user?.contact_person && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {user.contact_person}</span>
+              )}
+              {user?.phone && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={14} /> {user.phone}</span>
+              )}
+              {user?.address && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> {user.address}</span>
+              )}
             </div>
           </div>
 

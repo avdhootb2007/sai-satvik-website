@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, saveStoredRegisteredHotel } from '../lib/supabase';
 
 const AuthContext = createContext();
 
@@ -43,12 +43,14 @@ export function AuthProvider({ children }) {
             id: sessionUser.id,
             email: sessionUser.email,
             role: profile.role || 'hotel_resort',
-            business_name: profile.business_name || 'Hotel Client',
-            business_type: profile.business_type || 'hotel',
-            contact_person: profile.contact_person || 'Manager',
-            phone: profile.phone || '',
-            address: profile.address || '',
-            gst_number: profile.gst_number || ''
+            business_name: profile.business_name || sessionUser.user_metadata?.business_name || 'B2B Client',
+            business_type: profile.business_type || sessionUser.user_metadata?.business_type || 'hotel',
+            contact_person: profile.contact_person || sessionUser.user_metadata?.contact_person || '',
+            phone: profile.phone || sessionUser.user_metadata?.phone || '',
+            address: profile.address || sessionUser.user_metadata?.address || '',
+            gst_number: profile.gst_number || sessionUser.user_metadata?.gst_number || '',
+            status: profile.status || sessionUser.user_metadata?.status || 'pending',
+            is_permitted: Boolean(profile.is_permitted || sessionUser.user_metadata?.is_permitted)
           };
           setUser(fullUser);
           if (activePortal === 'none') {
@@ -100,18 +102,20 @@ export function AuthProvider({ children }) {
           }
 
           // Create default profile if first time
+          const userMeta = data.user.user_metadata || {};
           if (!profile) {
-            const userMeta = data.user.user_metadata || {};
             const defaultProfile = {
               id: data.user.id,
               email: data.user.email,
               role: userMeta.role || 'hotel_resort',
-              business_name: userMeta.business_name || 'Hotel & Resort Client',
+              business_name: userMeta.business_name || 'B2B Client',
               business_type: userMeta.business_type || 'hotel',
-              contact_person: userMeta.contact_person || 'Manager',
+              contact_person: userMeta.contact_person || '',
               phone: userMeta.phone || '',
               address: userMeta.address || '',
-              gst_number: userMeta.gst_number || ''
+              gst_number: userMeta.gst_number || '',
+              status: userMeta.status || 'pending',
+              is_permitted: Boolean(userMeta.is_permitted)
             };
             try {
               await supabase.from('profiles').upsert([defaultProfile]);
@@ -125,31 +129,36 @@ export function AuthProvider({ children }) {
             id: data.user.id,
             email: data.user.email,
             role: profile.role || 'hotel_resort',
-            business_name: profile.business_name || 'Hotel Client',
-            business_type: profile.business_type || 'hotel',
-            contact_person: profile.contact_person || 'Manager',
-            phone: profile.phone || '',
-            address: profile.address || '',
-            gst_number: profile.gst_number || ''
+            business_name: profile.business_name || userMeta.business_name || 'B2B Client',
+            business_type: profile.business_type || userMeta.business_type || 'hotel',
+            contact_person: profile.contact_person || userMeta.contact_person || '',
+            phone: profile.phone || userMeta.phone || '',
+            address: profile.address || userMeta.address || '',
+            gst_number: profile.gst_number || userMeta.gst_number || '',
+            status: profile.status || userMeta.status || 'pending',
+            is_permitted: Boolean(profile.is_permitted || userMeta.is_permitted)
           };
+          saveStoredRegisteredHotel(loggedUser);
           setUser(loggedUser);
           setActivePortal('hotel_resort');
           setIsHotelAuthOpen(false);
         }
       } else {
-        // Fallback local hotel login if Supabase client is not available
-        const demoUser = {
-          id: 'demo-hotel-user',
-          email: email || 'hotel@saisatvik.com',
+        const localUser = {
+          id: 'hotel-' + Date.now(),
+          email: email,
           role: 'hotel_resort',
-          business_name: 'ताज रिसॉर्ट व हॉटेल (Taj Grand)',
+          business_name: 'B2B Hotel',
           business_type: 'hotel',
-          contact_person: 'विक्रम पाटील (Manager)',
-          phone: '9822123456',
-          address: 'नाशिक रोड, निफाड फाटा, नाशिक',
-          gst_number: '27AAAAA0000A1Z5'
+          contact_person: email.split('@')[0],
+          phone: '',
+          address: '',
+          gst_number: '',
+          status: 'pending',
+          is_permitted: false
         };
-        setUser(demoUser);
+        saveStoredRegisteredHotel(localUser);
+        setUser(localUser);
         setActivePortal('hotel_resort');
         setIsHotelAuthOpen(false);
       }
@@ -172,67 +181,96 @@ export function AuthProvider({ children }) {
 
     try {
       if (supabase) {
+        // Step 1: Sign up the user in Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               role: 'hotel_resort',
-              business_name: business_name || 'Hotel Client',
+              business_name: business_name || 'B2B Client',
               business_type: business_type || 'hotel',
-              contact_person: contact_person || 'Manager',
+              contact_person: contact_person || '',
               phone: phone || '',
               address: address || '',
-              gst_number: gst_number || ''
+              gst_number: gst_number || '',
+              status: 'pending',
+              is_permitted: false
             }
           }
         });
 
         if (error) throw error;
 
-        // If session was not immediately issued, attempt direct login
-        let sessionUser = data.session?.user || data.user;
-        if (!data.session && sessionUser) {
-          const loginRes = await supabase.auth.signInWithPassword({ email, password });
-          if (loginRes.data?.user) {
-            sessionUser = loginRes.data.user;
+        // Get user from either session (auto-confirmed) or identities (email confirmation pending)
+        const signedUpUser = data.session?.user || data.user;
+
+        if (!signedUpUser || !signedUpUser.id) {
+          throw new Error('Registration did not return a valid user. Please try again.');
+        }
+
+        // Check if this is a duplicate signup (user exists but identities is empty)
+        if (signedUpUser.identities && signedUpUser.identities.length === 0) {
+          throw new Error('An account with this email already exists. Please switch to Sign In.');
+        }
+
+        // Step 2: Insert profile into profiles table IMMEDIATELY
+        // Use the user ID from signUp (works even before email confirmation)
+        const profilePayload = {
+          id: signedUpUser.id,
+          email,
+          role: 'hotel_resort',
+          business_name: business_name || 'B2B Client',
+          business_type: business_type || 'hotel',
+          contact_person: contact_person || '',
+          phone: phone || '',
+          address: address || '',
+          gst_number: gst_number || '',
+          status: 'pending',
+          is_permitted: false
+        };
+
+        const { error: upsertErr } = await supabase.from('profiles').upsert([profilePayload]);
+        if (upsertErr) {
+          console.error("Profile upsert failed:", upsertErr);
+          // Don't throw - auth user is already created, profile insert is secondary
+        }
+
+        // Step 3: Try to auto-login if no session yet (email might already be confirmed)
+        let hasSession = Boolean(data.session);
+        if (!hasSession) {
+          try {
+            const loginRes = await supabase.auth.signInWithPassword({ email, password });
+            if (loginRes.data?.session) {
+              hasSession = true;
+            }
+          } catch (loginErr) {
+            // Email confirmation is likely required - this is expected
+            console.log("Auto-login after signup skipped (email confirmation may be pending)");
           }
         }
 
-        const profilePayload = {
-          id: sessionUser.id,
-          email,
-          role: 'hotel_resort',
-          business_name: business_name || 'Hotel Client',
-          business_type: business_type || 'hotel',
-          contact_person: contact_person || 'Manager',
-          phone: phone || '',
-          address: address || '',
-          gst_number: gst_number || ''
-        };
-
-        try {
-          await supabase.from('profiles').upsert([profilePayload]);
-        } catch (e) {
-          console.warn("Profile upsert notice:", e);
-        }
-
+        saveStoredRegisteredHotel(profilePayload);
         setUser(profilePayload);
         setActivePortal('hotel_resort');
         setIsHotelAuthOpen(false);
       } else {
-        const demoUser = {
-          id: 'demo-hotel-' + Date.now(),
+        const localUser = {
+          id: 'hotel-' + Date.now(),
           email,
           role: 'hotel_resort',
-          business_name: business_name || 'Hotel Client',
+          business_name: business_name || 'B2B Client',
           business_type: business_type || 'hotel',
-          contact_person: contact_person || 'Manager',
+          contact_person: contact_person || '',
           phone: phone || '',
           address: address || '',
-          gst_number: gst_number || ''
+          gst_number: gst_number || '',
+          status: 'pending',
+          is_permitted: false,
+          created_at: new Date().toISOString()
         };
-        setUser(demoUser);
+        saveStoredRegisteredHotel(localUser);
+        setUser(localUser);
         setActivePortal('hotel_resort');
         setIsHotelAuthOpen(false);
       }
@@ -311,18 +349,18 @@ export function AuthProvider({ children }) {
           setIsManagerAuthOpen(false);
         }
       } else {
-        const demoManager = {
-          id: 'demo-manager-user',
-          email: email || 'admin@saisatvik.com',
+        const localManager = {
+          id: 'manager-' + Date.now(),
+          email: email,
           role: 'dairy_manager',
-          business_name: 'साई सात्विक डेअरी मॅनेजमेंट ऑफिस',
+          business_name: 'Sai Satvik Dairy Management Office',
           business_type: 'dairy_manager',
-          contact_person: 'ज्ञानेश्वर शिंदे (संचालक)',
-          phone: '9604988662',
-          address: 'टाकळी, ता. निफाड, जि. नाशिक',
+          contact_person: email.split('@')[0],
+          phone: '',
+          address: 'Niphad, Nashik',
           gst_number: ''
         };
-        setUser(demoManager);
+        setUser(localManager);
         setActivePortal('dairy_manager');
         setIsManagerAuthOpen(false);
       }
@@ -345,6 +383,7 @@ export function AuthProvider({ children }) {
 
     try {
       if (supabase) {
+        // Step 1: Sign up the manager in Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -354,7 +393,7 @@ export function AuthProvider({ children }) {
               business_name: 'Sai Satvik Dairy Management Office',
               business_type: 'dairy_manager',
               contact_person: contact_person || 'Dairy Manager',
-              phone: phone || '9604988662',
+              phone: phone || '',
               address: 'Takali, Niphad, Nashik',
               gst_number: ''
             }
@@ -363,48 +402,66 @@ export function AuthProvider({ children }) {
 
         if (error) throw error;
 
-        let sessionUser = data.session?.user || data.user;
-        if (!data.session && sessionUser) {
-          const loginRes = await supabase.auth.signInWithPassword({ email, password });
-          if (loginRes.data?.user) {
-            sessionUser = loginRes.data.user;
-          }
+        const signedUpUser = data.session?.user || data.user;
+
+        if (!signedUpUser || !signedUpUser.id) {
+          throw new Error('Registration did not return a valid user. Please try again.');
         }
 
+        // Check if this is a duplicate signup (user exists but identities is empty)
+        if (signedUpUser.identities && signedUpUser.identities.length === 0) {
+          throw new Error('An account with this email already exists. Please switch to Sign In.');
+        }
+
+        // Step 2: Insert profile into profiles table IMMEDIATELY
         const profilePayload = {
-          id: sessionUser.id,
+          id: signedUpUser.id,
           email,
           role: 'dairy_manager',
           business_name: 'Sai Satvik Dairy Management Office',
           business_type: 'dairy_manager',
           contact_person: contact_person || 'Dairy Manager',
-          phone: phone || '9604988662',
+          phone: phone || '',
           address: 'Takali, Niphad, Nashik',
-          gst_number: ''
+          gst_number: '',
+          status: 'approved',
+          is_permitted: true
         };
 
-        try {
-          await supabase.from('profiles').upsert([profilePayload]);
-        } catch (e) {
-          console.warn("Profile upsert notice:", e);
+        const { error: upsertErr } = await supabase.from('profiles').upsert([profilePayload]);
+        if (upsertErr) {
+          console.error("Manager profile upsert failed:", upsertErr);
+        }
+
+        // Step 3: Try to auto-login if no session yet
+        let hasSession = Boolean(data.session);
+        if (!hasSession) {
+          try {
+            const loginRes = await supabase.auth.signInWithPassword({ email, password });
+            if (loginRes.data?.session) {
+              hasSession = true;
+            }
+          } catch (loginErr) {
+            console.log("Auto-login after signup skipped (email confirmation may be pending)");
+          }
         }
 
         setUser(profilePayload);
         setActivePortal('dairy_manager');
         setIsManagerAuthOpen(false);
       } else {
-        const demoManager = {
-          id: 'demo-manager-' + Date.now(),
+        const localManager = {
+          id: 'manager-' + Date.now(),
           email,
           role: 'dairy_manager',
           business_name: 'Sai Satvik Dairy Management Office',
           business_type: 'dairy_manager',
           contact_person: contact_person || 'Dairy Manager',
-          phone: phone || '9604988662',
+          phone: phone || '',
           address: 'Takali, Niphad, Nashik',
           gst_number: ''
         };
-        setUser(demoManager);
+        setUser(localManager);
         setActivePortal('dairy_manager');
         setIsManagerAuthOpen(false);
       }

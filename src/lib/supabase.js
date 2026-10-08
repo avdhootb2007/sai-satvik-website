@@ -21,7 +21,9 @@ export const supabase = isSupabaseConfigured
 const STORAGE_KEYS = {
   USER: 'sai_satvik_demo_user',
   ORDERS: 'sai_satvik_demo_orders',
-  PRODUCTS: 'sai_satvik_demo_products'
+  PRODUCTS: 'sai_satvik_demo_products',
+  REGISTERED_HOTELS: 'sai_satvik_registered_hotels',
+  PERMITTED_USERS: 'sai_satvik_permitted_users'
 };
 
 export const INITIAL_DEMO_PRODUCTS = [
@@ -34,45 +36,7 @@ export const INITIAL_DEMO_PRODUCTS = [
   { id: 'p7', name: 'गुलाब जामुन (Gulab Jamun Bulk)', english_name: 'Gulab Jamun Bulk', category: 'sweets', regular_price: 260, b2b_price: 220, unit: 'Kg', min_bulk_qty: 5, image: '/images/sweets.png', in_stock: true }
 ];
 
-export const INITIAL_DEMO_ORDERS = [
-  {
-    id: 'ord-101',
-    order_number: 'SS-ORD-9021',
-    user_id: 'user-hotel-1',
-    business_name: 'ताज रिसॉर्ट व हॉटेल (Taj Grand Resort)',
-    contact_person: 'विक्रम पाटील (Manager)',
-    phone: '9822123456',
-    delivery_address: 'नाशिक रोड, निफाड फाटा, नाशिक',
-    delivery_date: new Date().toISOString().split('T')[0],
-    total_amount: 5200,
-    status: 'confirmed',
-    notes: 'कृपया सकाळी ७ वाजण्यापूर्वी पोहचवा.',
-    created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-    items: [
-      { product_name: 'ताजे गाईचे दूध (Fresh Cow Milk)', quantity: 50, unit: 'Liter', price_per_unit: 52, total_price: 2600 },
-      { product_name: 'ताजे चक्का दही (Thick Curd)', quantity: 20, unit: 'Kg', price_per_unit: 58, total_price: 1160 },
-      { product_name: 'ताजे मऊ पनीर (Fresh Paneer)', quantity: 4, unit: 'Kg', price_per_unit: 330, total_price: 1320 }
-    ]
-  },
-  {
-    id: 'ord-102',
-    order_number: 'SS-ORD-9022',
-    user_id: 'user-hotel-2',
-    business_name: 'साई पॅलेस हॉटेल व डायनिंग (Hotel Sai Palace)',
-    contact_person: 'संजय शिंदे (Owner)',
-    phone: '9423987654',
-    delivery_address: 'टाकळी रोड, निफाड',
-    delivery_date: new Date().toISOString().split('T')[0],
-    total_amount: 3400,
-    status: 'pending',
-    notes: 'दुधाचे कॅन स्वच्छ हवेत.',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    items: [
-      { product_name: 'शुद्ध म्हशीचे दूध (Buffalo Milk)', quantity: 30, unit: 'Liter', price_per_unit: 68, total_price: 2040 },
-      { product_name: 'शुद्ध सात्विक तूप (Pure Cow Ghee)', quantity: 2, unit: 'Kg', price_per_unit: 680, total_price: 1360 }
-    ]
-  }
-];
+export const INITIAL_DEMO_ORDERS = [];
 
 export const getStoredDemoOrders = () => {
   const data = localStorage.getItem(STORAGE_KEYS.ORDERS);
@@ -203,3 +167,90 @@ export const updateOrderStatusInSupabase = async (orderId, newStatus) => {
     }
   }
 };
+
+export const getStoredRegisteredHotels = () => {
+  const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_HOTELS);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveStoredRegisteredHotel = (hotelProfile) => {
+  if (!hotelProfile || !hotelProfile.id) return;
+  const current = getStoredRegisteredHotels();
+  const updated = [hotelProfile, ...current.filter(h => h.id !== hotelProfile.id && h.email !== hotelProfile.email)];
+  localStorage.setItem(STORAGE_KEYS.REGISTERED_HOTELS, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('sai_satvik_hotels_updated', { detail: hotelProfile }));
+};
+
+export const getPermittedUserIds = () => {
+  const data = localStorage.getItem(STORAGE_KEYS.PERMITTED_USERS);
+  return data ? JSON.parse(data) : [];
+};
+
+export const setPermittedUserInStorage = (userId, isPermitted) => {
+  const current = getPermittedUserIds();
+  let updated;
+  if (isPermitted) {
+    updated = Array.from(new Set([...current, userId]));
+  } else {
+    updated = current.filter(id => id !== userId);
+  }
+  localStorage.setItem(STORAGE_KEYS.PERMITTED_USERS, JSON.stringify(updated));
+};
+
+export const updateHotelPermissionInSupabase = async (hotelId, newStatus) => {
+  const isPermitted = (newStatus === 'permitted' || newStatus === 'approved');
+  setPermittedUserInStorage(hotelId, isPermitted);
+
+  const localHotels = getStoredRegisteredHotels();
+  const updatedLocal = localHotels.map(h => {
+    if (h.id === hotelId) {
+      return { ...h, status: newStatus, is_permitted: isPermitted };
+    }
+    return h;
+  });
+  localStorage.setItem(STORAGE_KEYS.REGISTERED_HOTELS, JSON.stringify(updatedLocal));
+
+  window.dispatchEvent(new CustomEvent('sai_satvik_hotels_updated', { detail: { hotelId, status: newStatus, is_permitted: isPermitted } }));
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ status: newStatus, is_permitted: isPermitted })
+        .eq('id', hotelId);
+    } catch (err) {
+      console.warn("Notice updating status in profiles table:", err);
+    }
+  }
+};
+
+export const fetchRegisteredHotelsFromSupabase = async () => {
+  const permittedIds = getPermittedUserIds();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'hotel_resort')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        return data.map(h => {
+          const isPerm = permittedIds.includes(h.id) || h.is_permitted === true || h.status === 'permitted' || h.status === 'approved';
+          return {
+            ...h,
+            status: h.status || (isPerm ? 'permitted' : 'pending'),
+            is_permitted: isPerm
+          };
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching hotel profiles from Supabase:", err);
+    }
+  }
+  return [];
+};
+
+
+

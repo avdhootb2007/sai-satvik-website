@@ -31,7 +31,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useProducts } from '../context/ProductContext';
-import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, fetchOrdersFromSupabase, updateOrderStatusInSupabase, getStoredDemoProducts, saveStoredDemoProducts } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getStoredDemoOrders, saveStoredDemoOrders, fetchOrdersFromSupabase, fetchRegisteredHotelsFromSupabase, updateOrderStatusInSupabase, updateHotelPermissionInSupabase, getStoredDemoProducts, saveStoredDemoProducts } from '../lib/supabase';
 
 export default function DairyManagerPortal() {
   const { user, setActivePortal, logout } = useAuth();
@@ -40,7 +40,9 @@ export default function DairyManagerPortal() {
 
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
+  const [registeredClients, setRegisteredClients] = useState([]);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all'); // 'all' | 'pending' | 'permitted'
   const [searchQuery, setSearchQuery] = useState('');
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
@@ -126,6 +128,7 @@ export default function DairyManagerPortal() {
     };
 
     window.addEventListener('sai_satvik_orders_updated', handleSync);
+    window.addEventListener('sai_satvik_hotels_updated', handleSync);
     window.addEventListener('storage', handleSync);
 
     let channel = null;
@@ -136,6 +139,9 @@ export default function DairyManagerPortal() {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
             loadManagerData();
           })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+            loadManagerData();
+          })
           .subscribe();
       } catch (err) {
         console.error("Manager real-time sync error:", err);
@@ -144,6 +150,7 @@ export default function DairyManagerPortal() {
 
     return () => {
       window.removeEventListener('sai_satvik_orders_updated', handleSync);
+      window.removeEventListener('sai_satvik_hotels_updated', handleSync);
       window.removeEventListener('storage', handleSync);
       if (channel && supabase) {
         supabase.removeChannel(channel);
@@ -154,6 +161,37 @@ export default function DairyManagerPortal() {
   const loadManagerData = async () => {
     const ords = await fetchOrdersFromSupabase();
     setOrders(ords);
+    const clients = await fetchRegisteredHotelsFromSupabase();
+    setRegisteredClients(clients);
+  };
+
+  const handlePermitUser = async (clientId, newStatus) => {
+    const targetClient = registeredClients.find(c => c.id === clientId);
+    await updateHotelPermissionInSupabase(clientId, newStatus);
+    await loadManagerData();
+
+    const isPerm = (newStatus === 'permitted' || newStatus === 'approved');
+    const clientName = targetClient?.business_name || 'Hotel Client';
+
+    if (isPerm && targetClient?.phone) {
+      const cleanPhone = targetClient.phone.replace(/\D/g, '');
+      const waPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+      const msg = language === 'mr'
+        ? `नमस्कार ${clientName}!\n\nतुमचे साई सात्विक डेअरी B2B खाते मॅनेजर द्वारे स्वीकृत व मंजूर (Permitted) केले गेले आहे!\nआता तुम्ही थेट B2B पोर्टलवरून सवलतीचे दर आणि मोठ्या प्रमाणात ऑर्डर देऊ शकता.\n\nधन्यवाद!\nसाई सात्विक डेअरी, निफाड.`
+        : `Hello ${clientName}!\n\nYour B2B Hotel account has been approved and permitted by Dairy Manager at Sai Satvik Dairy!\nYou can now log in and place bulk orders at wholesale rates.\n\nThank you!\nSai Satvik Dairy, Niphad.`;
+
+      const confirmWA = window.confirm(
+        language === 'mr'
+          ? `युझर ${clientName} ला परवानगी (Permit) दिली आहे!\n\nग्राहकाच्या व्हॉट्सॲप नंबर (${targetClient.phone}) वर परवानगीचा संदेश पाठवायचा का?`
+          : `User ${clientName} permitted successfully!\n\nSend confirmation message via WhatsApp to ${targetClient.phone}?`
+      );
+
+      if (confirmWA) {
+        window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    } else {
+      alert(language === 'mr' ? `युझर ${clientName} ची परवानगी स्थिती अपडेट झाली.` : `User ${clientName} permission status updated.`);
+    }
   };
 
   const handleSendClientNotification = (order, customStatus = null) => {
@@ -1550,50 +1588,211 @@ export default function DairyManagerPortal() {
           </div>
         )}
 
-        {/* TAB 3: CUSTOMERS DIRECTORY */}
+        {/* TAB 3: CUSTOMERS DIRECTORY & USER PERMISSIONS */}
         {activeTab === 'customers' && (
           <div style={{ backgroundColor: '#FFFFFF', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(15, 90, 49, 0.12)' }}>
-            <h3 className="marathi-heading" style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-primary-dark)', marginBottom: '1rem' }}>
-              {t('clientsDirectoryTab')}
-            </h3>
+            
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 className="marathi-heading" style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-primary-dark)', margin: 0 }}>
+                  {language === 'mr' ? 'B2B हॉटेल नोंदणी व युझर परवानगी (User Approval & B2B Clients)' : 'B2B Client Directory & User Approvals'}
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: '#6B7280' }}>
+                  {language === 'mr' ? 'नवीन हॉटेल युझरला लॉगिन व ऑर्डर परवानगी देण्यासाठी व्यवस्थापन' : 'Manage registered B2B hotels and permit new accounts'}
+                </p>
+              </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-              {Array.from(new Set(orders.map(o => o.business_name))).map((bName, idx) => {
-                const sampleOrd = orders.find(o => o.business_name === bName);
+              {/* Status Filter Pills */}
+              <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#F3F4F6', padding: '4px', borderRadius: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setClientFilter('all')}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    backgroundColor: clientFilter === 'all' ? 'var(--color-primary)' : 'transparent',
+                    color: clientFilter === 'all' ? '#FFF' : '#374151'
+                  }}
+                >
+                  {language === 'mr' ? 'सर्व युझर्स' : 'All Clients'} ({registeredClients.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClientFilter('pending')}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    backgroundColor: clientFilter === 'pending' ? '#D97706' : 'transparent',
+                    color: clientFilter === 'pending' ? '#FFF' : '#374151'
+                  }}
+                >
+                  ⏳ {language === 'mr' ? 'परवानगी प्रलंबित' : 'Pending Permit'} ({registeredClients.filter(c => c.status === 'pending' || !c.is_permitted).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClientFilter('permitted')}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    backgroundColor: clientFilter === 'permitted' ? '#059669' : 'transparent',
+                    color: clientFilter === 'permitted' ? '#FFF' : '#374151'
+                  }}
+                >
+                  ✅ {language === 'mr' ? 'मंजूर युझर्स' : 'Permitted'} ({registeredClients.filter(c => c.status === 'permitted' || c.status === 'approved' || c.is_permitted).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Filtered Clients List */}
+            {(() => {
+              const filteredList = registeredClients.filter(client => {
+                const isPerm = client.status === 'permitted' || client.status === 'approved' || client.is_permitted === true;
+                if (clientFilter === 'pending') return !isPerm;
+                if (clientFilter === 'permitted') return isPerm;
+                return true;
+              });
+
+              if (filteredList.length === 0) {
                 return (
-                  <div key={idx} style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-gold)', fontWeight: 800, textTransform: 'uppercase' }}>
-                      Verified B2B Client
-                    </div>
-                    <h4 className="marathi-heading" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-primary-dark)', margin: '0.2rem 0 0.5rem 0' }}>
-                      {bName}
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px dashed #D1D5DB' }}>
+                    <ShieldCheck size={48} color="#9CA3AF" style={{ margin: '0 auto 1rem auto' }} />
+                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 800, color: '#374151' }}>
+                      {language === 'mr' ? 'कोणतेही नोंदणीकृत B2B क्लायंट सापडले नाहीत' : 'No registered B2B clients found'}
                     </h4>
-                    <div style={{ fontSize: '0.85rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginBottom: '0.75rem' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> <strong>Contact:</strong> {sampleOrd?.contact_person}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={14} /> <strong>Phone:</strong> {sampleOrd?.phone}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} /> <strong>Address:</strong> {sampleOrd?.delivery_address}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <a
-                        href={`tel:${sampleOrd?.phone}`}
-                        style={{ flex: 1, padding: '0.4rem', backgroundColor: 'var(--color-primary)', color: '#FFF', textAlign: 'center', borderRadius: '6px', textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
-                      >
-                        <Phone size={14} /> {t('callNow')}
-                      </a>
-                      <a
-                        href={`https://wa.me/91${sampleOrd?.phone}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ flex: 1, padding: '0.4rem', backgroundColor: '#25D366', color: '#FFF', textAlign: 'center', borderRadius: '6px', textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
-                      >
-                        <MessageCircle size={14} /> {t('whatsappChat')}
-                      </a>
-                    </div>
+                    <p style={{ margin: 0, fontSize: '0.88rem', color: '#6B7280' }}>
+                      {language === 'mr' ? 'नवीन हॉटेल्स नोंदणी केल्यानंतर येथे दिसतील व त्यांना परवानगी देता येईल.' : 'Newly registered B2B hotels will appear here for manager permission.'}
+                    </p>
                   </div>
                 );
-              })}
-            </div>
+              }
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                  {filteredList.map((client, idx) => {
+                    const isPermitted = client.status === 'permitted' || client.status === 'approved' || client.is_permitted === true;
+                    const clientOrders = orders.filter(o => o.user_id === client.id || o.business_name === client.business_name);
+                    const cleanPhone = (client.phone || '').replace(/\D/g, '');
+
+                    return (
+                      <div key={client.id || idx} style={{
+                        backgroundColor: '#FFFFFF',
+                        border: isPermitted ? '2px solid #10B981' : '2px solid #F59E0B',
+                        borderRadius: '12px',
+                        padding: '1.2rem',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                        position: 'relative'
+                      }}>
+                        
+                        {/* Header Badge */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: isPermitted ? '#ECFDF5' : '#FEF3C7',
+                            color: isPermitted ? '#047857' : '#B45309',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {isPermitted ? <CheckCircle2 size={13} /> : <Clock size={13} />}
+                            {isPermitted 
+                              ? (language === 'mr' ? 'परवानगी दिली (Permitted & Verified)' : 'Permitted B2B Client') 
+                              : (language === 'mr' ? 'परवानगी प्रलंबित (Pending Permit)' : 'Pending Manager Permit')}
+                          </span>
+
+                          <span style={{ fontSize: '0.75rem', backgroundColor: '#EBF5EE', color: 'var(--color-primary)', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+                            {clientOrders.length} {language === 'mr' ? 'ऑर्डर्स' : 'Orders'}
+                          </span>
+                        </div>
+
+                        {/* Business Name */}
+                        <h4 className="marathi-heading" style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary-dark)', margin: '0 0 0.6rem 0' }}>
+                          {client.business_name || 'B2B Client Hotel'}
+                        </h4>
+
+                        {/* Contact details */}
+                        <div style={{ fontSize: '0.85rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><User size={14} color="var(--color-primary)" /> <strong>Contact:</strong> {client.contact_person || 'N/A'}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={14} color="var(--color-primary)" /> <strong>Phone:</strong> {client.phone || 'N/A'}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} color="var(--color-primary)" /> <strong>Address:</strong> {client.address || 'N/A'}</span>
+                          {client.email && (
+                            <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>📧 Email: {client.email}</span>
+                          )}
+                          {client.gst_number && (
+                            <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>📜 GST: {client.gst_number}</span>
+                          )}
+                        </div>
+
+                        {/* PERMIT ACTION BUTTON & CONTACT */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {/* Permit Button */}
+                          <button
+                            type="button"
+                            onClick={() => handlePermitUser(client.id, isPermitted ? 'pending' : 'permitted')}
+                            style={{
+                              width: '100%',
+                              padding: '0.6rem',
+                              borderRadius: '8px',
+                              border: 'none',
+                              backgroundColor: isPermitted ? '#FEF2F2' : '#059669',
+                              color: isPermitted ? '#DC2626' : '#FFFFFF',
+                              fontWeight: 800,
+                              fontSize: '0.88rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              boxShadow: isPermitted ? 'none' : '0 2px 8px rgba(5,150,105,0.3)'
+                            }}
+                          >
+                            <ShieldCheck size={16} />
+                            <span>
+                              {isPermitted
+                                ? (language === 'mr' ? 'परवानगी रद्द करा (Revoke Permit)' : 'Revoke User Permission')
+                                : (language === 'mr' ? 'युझरला परवानगी द्या (Permit New User)' : 'Permit & Approve User')}
+                            </span>
+                          </button>
+
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <a
+                              href={`tel:${client.phone}`}
+                              style={{ flex: 1, padding: '0.45rem', backgroundColor: '#F3F4F6', color: '#374151', textAlign: 'center', borderRadius: '6px', textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', border: '1px solid #D1D5DB' }}
+                            >
+                              <Phone size={14} /> {t('callNow')}
+                            </a>
+                            <a
+                              href={`https://wa.me/${cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ flex: 1, padding: '0.45rem', backgroundColor: '#25D366', color: '#FFF', textAlign: 'center', borderRadius: '6px', textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
+                            >
+                              <MessageCircle size={14} /> {t('whatsappChat')}
+                            </a>
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
           </div>
         )}
 
